@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../app/widgets/sfa_ui.dart';
 import 'approval_controller.dart';
 
 class ApprovalPage extends GetView<ApprovalController> {
@@ -17,9 +18,7 @@ class ApprovalPage extends GetView<ApprovalController> {
           }
 
           if (controller.approvals.isEmpty) {
-            return const Center(
-              child: Text('Tidak ada item menunggu approval untuk role Anda.'),
-            );
+            return SfaEmptyState(icon: Icons.approval_outlined, title: 'Tidak ada approval', description: 'Tidak ada item yang menunggu tindakan untuk role Anda.', actionLabel: 'Muat ulang', onAction: controller.loadPendingApprovals);
           }
 
           return ListView.separated(

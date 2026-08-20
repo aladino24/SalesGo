@@ -6,6 +6,9 @@ class VisitModel {
     required this.distanceKm,
     required this.salesName,
     required this.createdAt,
+    this.outletId,
+    this.latitude,
+    this.longitude,
   });
 
   final String id;
@@ -14,6 +17,9 @@ class VisitModel {
   final double distanceKm;
   final String salesName;
   final DateTime createdAt;
+  final String? outletId;
+  final double? latitude;
+  final double? longitude;
 
   factory VisitModel.fromJson(Map<String, dynamic> json) {
     return VisitModel(
@@ -23,6 +29,9 @@ class VisitModel {
       distanceKm: (json['distanceKm'] as num).toDouble(),
       salesName: json['salesName'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
+      outletId: json['outletId']?.toString(),
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
     );
   }
 
@@ -33,6 +42,9 @@ class VisitModel {
         'distanceKm': distanceKm,
         'salesName': salesName,
         'createdAt': createdAt.toIso8601String(),
+        if (outletId != null) 'outletId': outletId,
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
       };
 
   VisitModel copyWith({
@@ -42,6 +54,9 @@ class VisitModel {
     double? distanceKm,
     String? salesName,
     DateTime? createdAt,
+    String? outletId,
+    double? latitude,
+    double? longitude,
   }) {
     return VisitModel(
       id: id ?? this.id,
@@ -50,6 +65,9 @@ class VisitModel {
       distanceKm: distanceKm ?? this.distanceKm,
       salesName: salesName ?? this.salesName,
       createdAt: createdAt ?? this.createdAt,
+      outletId: outletId ?? this.outletId,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
     );
   }
 }

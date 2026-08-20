@@ -1,38 +1,22 @@
+import 'package:get/get.dart';
+
+import '../../../core/network/api_client.dart';
+import '../../../core/network/api_endpoints.dart';
 import '../../models/outlet_model.dart';
 import '../../models/product_model.dart';
 
 class MasterRemoteDataSource {
-  Future<List<ProductModel>> getProducts() async {
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+  MasterRemoteDataSource({ApiClient? apiClient}) : _apiClient = apiClient ?? Get.find<ApiClient>();
 
-    return [
-      ProductModel(
-        id: 'PRD-101',
-        name: 'Minuman Soda',
-        sku: 'SKU-101',
-        category: 'Minuman',
-        price: 12000,
-        stock: 85,
-        imageUrl: '',
-      ),
-    ];
+  final ApiClient _apiClient;
+
+  Future<List<ProductModel>> getProducts() async {
+    final response = await _apiClient.get<List<dynamic>>(ApiEndpoints.products);
+    return response.map((item) => ProductModel.fromJson(Map<String, dynamic>.from(item as Map))).toList();
   }
 
   Future<List<OutletModel>> getOutlets() async {
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-
-    return [
-      OutletModel(
-        id: 'OUT-101',
-        name: 'Outlet Server',
-        code: 'S-01',
-        address: 'Jl. Raya Pasar Baru',
-        type: 'Retail',
-        latitude: -6.1944,
-        longitude: 106.8229,
-        salesResponsible: 'Raka',
-        status: 'Active',
-      ),
-    ];
+    final response = await _apiClient.get<List<dynamic>>(ApiEndpoints.outlets);
+    return response.map((item) => OutletModel.fromJson(Map<String, dynamic>.from(item as Map))).toList();
   }
 }

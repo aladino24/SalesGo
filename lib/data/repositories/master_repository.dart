@@ -15,14 +15,26 @@ class MasterRepository {
 
   Future<List<ProductModel>> getProducts({required bool isOnline}) async {
     if (isOnline) {
-      return _remoteDataSource.getProducts();
+      try {
+        final products = await _remoteDataSource.getProducts();
+        await _localDataSource.saveProducts(products);
+        return products;
+      } catch (_) {
+        return _localDataSource.getProducts();
+      }
     }
     return _localDataSource.getProducts();
   }
 
   Future<List<OutletModel>> getOutlets({required bool isOnline}) async {
     if (isOnline) {
-      return _remoteDataSource.getOutlets();
+      try {
+        final outlets = await _remoteDataSource.getOutlets();
+        await _localDataSource.saveOutlets(outlets);
+        return outlets;
+      } catch (_) {
+        return _localDataSource.getOutlets();
+      }
     }
     return _localDataSource.getOutlets();
   }

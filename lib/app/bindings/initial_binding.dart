@@ -6,6 +6,8 @@ import '../../core/network/network_info.dart';
 import '../../core/storage/local_storage.dart';
 import '../../core/storage/sync_storage.dart';
 import '../../core/sync/sync_manager.dart';
+import '../../core/sync/server_state_restore_service.dart';
+import '../../core/sync/master_data_download_service.dart';
 
 class InitialBinding extends Bindings {
   @override
@@ -16,7 +18,9 @@ class InitialBinding extends Bindings {
 
     // Network
     Get.put<NetworkInfo>(NetworkInfo());
-    Get.put<SessionService>(SessionService());
+    if (!Get.isRegistered<SessionService>()) {
+      Get.put<SessionService>(SessionService(), permanent: true);
+    }
     Get.put<ApiClient>(ApiClient(
       sessionService: Get.find<SessionService>(),
     ));
@@ -28,5 +32,12 @@ class InitialBinding extends Bindings {
         apiClient: Get.find<ApiClient>(),
       ),
     );
+    Get.put<ServerStateRestoreService>(
+      ServerStateRestoreService(
+        apiClient: Get.find<ApiClient>(),
+        networkInfo: Get.find<NetworkInfo>(),
+      ),
+    );
+    Get.put<MasterDataDownloadService>(MasterDataDownloadService());
   }
 }

@@ -35,6 +35,10 @@ class ProductController extends GetxController {
     }
   }
 
+  Future<void> refreshFromCache() async {
+    products.assignAll(await _repository.getProducts(isOnline: false));
+  }
+
   List<ProductModel> get filteredProducts {
     final query = searchTerm.value.trim().toLowerCase();
     if (query.isEmpty) {

@@ -1,0 +1,118 @@
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:uuid/uuid.dart';
+
+import '../../app/theme/app_colors.dart';
+import '../../app/widgets/sfa_ui.dart';
+import '../../data/models/delivery_note_model.dart';
+import '../../data/repositories/delivery_note_repository.dart';
+
+class DeliveryNotePage extends StatefulWidget {
+  const DeliveryNotePage({super.key});
+
+  @override
+  State<DeliveryNotePage> createState() => _DeliveryNotePageState();
+}
+
+class _DeliveryNotePageState extends State<DeliveryNotePage> {
+  final _repository = DeliveryNoteRepository();
+  List<DeliveryNoteModel> _items = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (mounted) setState(() => _loading = true);
+    _items = await _repository.all();
+    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _create() async {
+    final number = TextEditingController();
+    final destination = TextEditingController();
+    final product = TextEditingController();
+    final quantity = TextEditingController(text: '1');
+    final saved = await Get.dialog<bool>(
+      AlertDialog(
+        title: const Text('Buat Surat Jalan'),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: number, decoration: const InputDecoration(labelText: 'Nomor surat jalan')),
+            TextField(controller: destination, decoration: const InputDecoration(labelText: 'Tujuan / outlet')),
+            TextField(controller: product, decoration: const InputDecoration(labelText: 'Barang')),
+            TextField(controller: quantity, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Jumlah barang')),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Get.back(result: false), child: const Text('Batal')),
+          FilledButton(onPressed: () => Get.back(result: true), child: const Text('Simpan')),
+        ],
+      ),
+    );
+    if (saved == true && number.text.trim().isNotEmpty && destination.text.trim().isNotEmpty) {
+      const uuid = Uuid();
+      await _repository.create(DeliveryNoteModel(
+        id: uuid.v4(), number: number.text.trim(), destination: destination.text.trim(),
+        items: [{'productName': product.text.trim().isEmpty ? 'Barang' : product.text.trim(), 'quantity': int.tryParse(quantity.text) ?? 1}],
+        status: 'Draft', approvalStatus: 'Not Submitted', createdAt: DateTime.now(),
+      ));
+      await _load();
+      Get.snackbar('Surat jalan dibuat', 'Draft tersimpan lokal dan siap diajukan.');
+    }
+    number.dispose();
+    destination.dispose();
+    product.dispose();
+    quantity.dispose();
+  }
+
+  Future<void> _change(DeliveryNoteModel item, String status) async {
+    await _repository.changeStatus(item, status);
+    await _load();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Surat Jalan', style: TextStyle(fontWeight: FontWeight.w800))),
+    floatingActionButton: FloatingActionButton.extended(onPressed: _create, icon: const Icon(Icons.add), label: const Text('Buat')),
+    body: _loading
+        ? const Center(child: CircularProgressIndicator())
+        : _items.isEmpty
+            ? SfaEmptyState(icon: Icons.local_shipping_outlined, title: 'Belum ada surat jalan', description: 'Buat surat jalan untuk membawa barang dalam perjalanan.', actionLabel: 'Buat Surat Jalan', onAction: _create)
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(16), itemCount: _items.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (_, index) => _DeliveryNoteCard(item: _items[index], onStatus: _change),
+                ),
+              ),
+  );
+}
+
+class _DeliveryNoteCard extends StatelessWidget {
+  const _DeliveryNoteCard({required this.item, required this.onStatus});
+  final DeliveryNoteModel item;
+  final Future<void> Function(DeliveryNoteModel, String) onStatus;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text(item.number, style: const TextStyle(fontWeight: FontWeight.w800))),
+          SfaStatusChip(label: item.status, color: item.status == 'Completed' ? AppColors.success : AppColors.primary),
+        ]),
+        const SizedBox(height: 5), Text(item.destination), const SizedBox(height: 8),
+        ...item.items.map((entry) => Padding(padding: const EdgeInsets.only(bottom: 3), child: Text('• ${entry['productName'] ?? 'Barang'} × ${entry['quantity'] ?? 0}', style: const TextStyle(fontSize: 12)))),
+        Text('Approval: ${item.approvalStatus}', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+        const SizedBox(height: 10),
+        if (item.status == 'Draft') SizedBox(width: double.infinity, child: FilledButton(onPressed: () => onStatus(item, 'Submitted'), child: const Text('Ajukan Approval Branch Manager')))
+        else if (item.status == 'Approved') SizedBox(width: double.infinity, child: OutlinedButton(onPressed: () => onStatus(item, 'Completed'), child: const Text('Tandai Barang Digunakan'))),
+      ]),
+    ),
+  );

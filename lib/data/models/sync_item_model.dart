@@ -12,6 +12,8 @@ class SyncItem {
     this.lastAttemptAt,
     this.attemptCount = 0,
     this.error,
+    this.nextAttemptAt,
+    this.conflict,
   });
 
   final String id; // Local primary key
@@ -26,6 +28,8 @@ class SyncItem {
   final DateTime? lastAttemptAt;
   final int attemptCount;
   final String? error;
+  final DateTime? nextAttemptAt;
+  final Map<String, dynamic>? conflict;
 
   factory SyncItem.fromJson(Map<String, dynamic> json) {
     return SyncItem(
@@ -43,6 +47,8 @@ class SyncItem {
           : null,
       attemptCount: json['attemptCount'] as int? ?? 0,
       error: json['error'] as String?,
+      nextAttemptAt: json['nextAttemptAt'] != null ? DateTime.parse(json['nextAttemptAt'] as String) : null,
+      conflict: json['conflict'] is Map ? Map<String, dynamic>.from(json['conflict'] as Map) : null,
     );
   }
 
@@ -59,6 +65,8 @@ class SyncItem {
         'lastAttemptAt': lastAttemptAt?.toIso8601String(),
         'attemptCount': attemptCount,
         'error': error,
+        'nextAttemptAt': nextAttemptAt?.toIso8601String(),
+        'conflict': conflict,
       };
 
   SyncItem copyWith({
@@ -66,6 +74,9 @@ class SyncItem {
     DateTime? lastAttemptAt,
     int? attemptCount,
     String? error,
+    DateTime? nextAttemptAt,
+    Map<String, dynamic>? conflict,
+    Map<String, dynamic>? payload,
   }) {
     return SyncItem(
       id: id,
@@ -73,13 +84,15 @@ class SyncItem {
       type: type,
       endpoint: endpoint,
       method: method,
-      payload: payload,
+      payload: payload ?? this.payload,
       status: status ?? this.status,
       idempotencyKey: idempotencyKey,
       createdAt: createdAt,
       lastAttemptAt: lastAttemptAt ?? this.lastAttemptAt,
       attemptCount: attemptCount ?? this.attemptCount,
       error: error ?? this.error,
+      nextAttemptAt: nextAttemptAt ?? this.nextAttemptAt,
+      conflict: conflict ?? this.conflict,
     );
   }
 }

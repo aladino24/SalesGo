@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../app/widgets/sfa_ui.dart';
 import '../../data/models/product_model.dart';
 import 'product_controller.dart';
 
@@ -35,7 +36,7 @@ class ProductPage extends GetView<ProductController> {
 
                   final items = controller.filteredProducts;
                   if (items.isEmpty) {
-                    return const Center(child: Text('Produk tidak ditemukan'));
+                    return SfaEmptyState(icon: Icons.inventory_2_outlined, title: 'Produk tidak ditemukan', description: controller.searchTerm.value.isEmpty ? 'Belum ada produk yang tersimpan di perangkat.' : 'Coba gunakan SKU, nama, atau kategori lain.', actionLabel: 'Muat ulang', onAction: controller.loadProducts);
                   }
 
                   return ListView.separated(

@@ -35,6 +35,10 @@ class OutletController extends GetxController {
     }
   }
 
+  Future<void> refreshFromCache() async {
+    outlets.assignAll(await _repository.getOutlets(isOnline: false));
+  }
+
   List<OutletModel> get filteredOutlets {
     final query = searchTerm.value.trim().toLowerCase();
     if (query.isEmpty) {

@@ -13,23 +13,17 @@ class AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    // Add token to authorization header if available
-    // In a real app, retrieve from SessionService
-    final token = await _getToken();
+    final token = sessionService.accessToken.value;
     if (token != null && token.isNotEmpty) {
       options.headers['Authorization'] = 'Bearer $token';
     }
 
-    options.headers['Content-Type'] = 'application/json';
+    if (options.data is! FormData) {
+      options.headers['Content-Type'] = 'application/json';
+    }
     options.headers['Accept'] = 'application/json';
 
     return handler.next(options);
-  }
-
-  Future<String?> _getToken() async {
-    // Placeholder: retrieve from session storage
-    // In real app, integrate with SessionService
-    return null;
   }
 }
 

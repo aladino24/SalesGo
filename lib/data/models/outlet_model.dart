@@ -9,6 +9,9 @@ class OutletModel {
     required this.longitude,
     required this.salesResponsible,
     required this.status,
+    this.ownerName,
+    this.contactName,
+    this.phone,
   });
 
   final String id;
@@ -20,6 +23,9 @@ class OutletModel {
   final double longitude;
   final String salesResponsible;
   final String status;
+  final String? ownerName;
+  final String? contactName;
+  final String? phone;
 
   factory OutletModel.fromJson(Map<String, dynamic> json) {
     return OutletModel(
@@ -32,6 +38,9 @@ class OutletModel {
       longitude: (json['longitude'] as num).toDouble(),
       salesResponsible: json['salesResponsible'] as String,
       status: json['status'] as String,
+      ownerName: json['ownerName']?.toString(),
+      contactName: json['contactName']?.toString(),
+      phone: json['phone']?.toString(),
     );
   }
 
@@ -45,5 +54,8 @@ class OutletModel {
         'longitude': longitude,
         'salesResponsible': salesResponsible,
         'status': status,
+        if (ownerName != null) 'ownerName': ownerName,
+        if (contactName != null) 'contactName': contactName,
+        if (phone != null) 'phone': phone,
       };
 }

@@ -6,16 +6,20 @@ import '../network/api_client.dart';
 import '../network/api_exception.dart';
 import '../network/network_info.dart';
 import '../storage/sync_storage.dart';
+import 'attachment_upload_service.dart';
 
 class SyncManager extends GetxController {
   SyncManager({
     NetworkInfo? networkInfo,
     ApiClient? apiClient,
+    AttachmentUploadService? attachmentUploadService,
   })  : _networkInfo = networkInfo ?? NetworkInfo(),
-        _apiClient = apiClient ?? Get.find<ApiClient>();
+        _apiClient = apiClient ?? Get.find<ApiClient>(),
+        _attachmentUploadService = attachmentUploadService ?? AttachmentUploadService();
 
   final NetworkInfo _networkInfo;
   final ApiClient _apiClient;
+  final AttachmentUploadService _attachmentUploadService;
 
   final RxBool isSyncing = false.obs;
   final RxString status = 'offline'.obs;
@@ -39,7 +43,7 @@ class SyncManager extends GetxController {
     });
   }
 
-  Future<void> syncNow() async {
+  Future<void> syncNow({bool force = false}) async {
     final connected = await _networkInfo.isConnected;
     if (!connected) {
       status.value = 'offline';
@@ -51,9 +55,12 @@ class SyncManager extends GetxController {
     status.value = 'synchronizing';
 
     try {
-      final items = SyncStorage.pendingItems;
+      final items = SyncStorage.pendingItems(force: force);
       if (items.isEmpty) {
-        status.value = 'success';
+        final stats = SyncStorage.getSyncStats();
+        status.value = (stats['failed'] ?? 0) > 0 || (stats['conflict'] ?? 0) > 0 || (stats['blocked'] ?? 0) > 0
+            ? 'sync_partial'
+            : 'success';
         await SyncStorage.updateLastSync();
         _updateStats();
         return;
@@ -63,7 +70,10 @@ class SyncManager extends GetxController {
         await _syncItem(item);
       }
 
-      status.value = 'success';
+      final stats = SyncStorage.getSyncStats();
+      status.value = (stats['failed'] ?? 0) > 0 || (stats['conflict'] ?? 0) > 0 || (stats['blocked'] ?? 0) > 0
+          ? 'sync_partial'
+          : 'success';
       await SyncStorage.updateLastSync();
     } catch (e) {
       status.value = 'sync_failed';
@@ -75,60 +85,53 @@ class SyncManager extends GetxController {
 
   Future<void> _syncItem(SyncItem item) async {
     try {
-      // Mark as syncing
       await SyncStorage.updateItemStatus(item.id, 'syncing');
+      await SyncStorage.addAudit(item: item, event: 'sync_started');
 
-      // Dispatch API call based on method
-      await _dispatchRequest(item);
+      final payload = await _attachmentUploadService.preparePayload(item.payload);
+      if (payload.toString() != item.payload.toString()) {
+        await SyncStorage.updateItemPayload(item.id, payload);
+      }
+      await _dispatchRequest(item.copyWith(payload: payload));
 
-      // Mark as success and remove from queue
       await SyncStorage.updateItemStatus(item.id, 'success');
+      await SyncStorage.addAudit(item: item, event: 'sync_succeeded');
       await SyncStorage.removeItem(item.id);
     } on ApiException catch (e) {
       if (e.statusCode == 409) {
-        // Conflict: duplicate/conflict detected, mark as conflict
         await SyncStorage.updateItemStatus(
           item.id,
           'conflict',
           error: 'Conflict detected: ${e.message}',
+          conflict: e.response is Map ? Map<String, dynamic>.from(e.response as Map) : {'message': e.message},
         );
+        await SyncStorage.addAudit(item: item, event: 'sync_conflict', message: e.message, details: e.response is Map ? Map<String, dynamic>.from(e.response as Map) : null);
       } else if (e.statusCode == 401 || e.statusCode == 403) {
-        // Auth error, mark as failed
-        await SyncStorage.updateItemStatus(
-          item.id,
-          'failed',
-          error: 'Auth error: ${e.message}',
-        );
+        await _scheduleRetry(item, 'Auth error: ${e.message}');
       } else {
-        // Other API error, keep as pending for retry
-        await SyncStorage.updateItemStatus(
-          item.id,
-          'failed',
-          error: e.message,
-        );
+        await _scheduleRetry(item, e.message);
       }
     } on TimeoutException catch (e) {
-      // Timeout, keep as pending for retry
-      await SyncStorage.updateItemStatus(
-        item.id,
-        'failed',
-        error: 'Timeout: ${e.message}',
-      );
+      await _scheduleRetry(item, 'Timeout: ${e.message}');
     } on NetworkException catch (e) {
-      // Network error, keep as pending for retry
-      await SyncStorage.updateItemStatus(
-        item.id,
-        'failed',
-        error: 'Network error: ${e.message}',
-      );
+      await _scheduleRetry(item, 'Network error: ${e.message}');
     } catch (e) {
-      // Unknown error
-      await SyncStorage.updateItemStatus(
-        item.id,
-        'failed',
-        error: 'Unknown error: $e',
-      );
+      await _scheduleRetry(item, 'Unknown error: $e');
     }
+  }
+
+  Future<void> _scheduleRetry(SyncItem item, String error) async {
+    const maxAttempts = 5;
+    final attempts = item.attemptCount + 1;
+    if (attempts >= maxAttempts) {
+      await SyncStorage.updateItemStatus(item.id, 'blocked', error: error, incrementAttempt: true);
+      await SyncStorage.addAudit(item: item, event: 'sync_blocked', message: error, details: {'attempts': attempts});
+      return;
+    }
+    final delayMinutes = 1 << (attempts - 1);
+    final nextAttempt = DateTime.now().add(Duration(minutes: delayMinutes > 30 ? 30 : delayMinutes));
+    await SyncStorage.updateItemStatus(item.id, 'failed', error: error, nextAttemptAt: nextAttempt, incrementAttempt: true);
+    await SyncStorage.addAudit(item: item, event: 'sync_retry_scheduled', message: error, details: {'attempts': attempts, 'nextAttemptAt': nextAttempt.toUtc().toIso8601String()});
   }
 
   Future<void> _dispatchRequest(SyncItem item) async {
@@ -175,7 +178,7 @@ class SyncManager extends GetxController {
     required String idempotencyKey,
   }) async {
     final item = SyncItem(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: uuid,
       uuid: uuid,
       type: type,
       endpoint: endpoint,

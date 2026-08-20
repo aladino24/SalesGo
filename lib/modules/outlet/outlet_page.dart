@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../app/widgets/sfa_ui.dart';
 import '../../data/models/outlet_model.dart';
 import 'outlet_controller.dart';
 import 'outlet_detail_page.dart';
@@ -52,26 +53,7 @@ class OutletPage extends GetView<OutletController> {
 
                 final items = controller.filteredOutlets;
                 if (items.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.store_rounded,
-                          size: 64,
-                          color: Colors.grey.shade300,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Outlet tidak ditemukan',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
+                  return SfaEmptyState(icon: Icons.storefront_outlined, title: 'Outlet tidak ditemukan', description: controller.searchTerm.value.isEmpty ? 'Belum ada outlet yang tersimpan di perangkat.' : 'Coba gunakan kata kunci pencarian lain.', actionLabel: 'Muat ulang', onAction: controller.loadOutlets);
                 }
 
                 return ListView.separated(

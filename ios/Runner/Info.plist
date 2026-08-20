@@ -8,6 +8,12 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Salesgo</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Lokasi diperlukan untuk memvalidasi check-in dan checkout outlet.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Kamera diperlukan untuk mengambil foto bukti kunjungan outlet.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Galeri diperlukan untuk memilih foto bukti kunjungan outlet.</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
