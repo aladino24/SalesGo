@@ -29,6 +29,14 @@ Gunakan [API Contract v1](api-contract.md) sebagai spesifikasi publik. Dokumen i
 
 Setiap tabel transaksi perlu memiliki: `id`, `local_transaction_id`/`client_uuid`, `created_at`, `updated_at`, `created_by`, `branch_id`, dan status.
 
+## Kode cabang, user, outlet, dan seed development
+
+- Buat master `branches(code CHAR(3) UNIQUE)`, `roles(code CHAR(3) UNIQUE)`, dan `sales_divisions(code CHAR(2) UNIQUE)`. Simpan `branch_id` dan `branch_code` pada semua master yang scoped cabang; master pusat memakai assignment/projection per cabang untuk harga, stok, dan visibilitas.
+- User/sales mempunyai `employee_code CHAR(10) UNIQUE` dengan format `BBBRRRDDNN`: branch 3 digit, role 3 digit, divisi sales 2 digit, dan increment 2 digit. Gunakan transaction/row lock saat mengalokasikan increment, unique constraint `(branch_id, role_code, division_code, increment_no)`, dan jangan mendaur ulang increment user nonaktif.
+- Outlet mempunyai `code` unik minimal per cabang dan wajib berformat `BBB-OTL-NNNN`; prefix `BBB` harus sama dengan `branch_code`. Produk perlu `branch_id`, `branch_code`, dan SKU yang scoped branch seperti `BBB-PRD-NNNN` bila SKU tidak dikelola pusat.
+- Jadikan `branch_id` sebagai sumber scope otorisasi. `branch_code` dan kode bisnis hanya atribut yang tervalidasi; client tidak dapat memilih cabang melalui body request.
+- Sediakan command idempotent, misalnya `seed:development`, untuk membuat data dummy cabang, role, divisi, user, outlet, produk, harga/stok, assignment, visit, dan approval. Command hanya diizinkan pada local/development/staging dan harus gagal pada production. Jangan mengirim seed sebagai fallback aplikasi Flutter.
+
 ## Idempotency dan sync
 
 Simpan pasangan `(user_id, idempotency_key, endpoint)` dengan response sukses selama periode retensi yang disepakati. Jika request yang sama datang ulang, kembalikan response pertama tanpa menulis data baru. Jika body berbeda dengan key yang sama, respons `409`.
@@ -70,6 +78,8 @@ Implementasikan `GET /master/snapshot` sesuai [API Contract v1](api-contract.md#
 - Bangun notifikasi dari event domain (sync result, approval, perubahan visit/journey, meeting). Simpan unread/read per user dan gunakan cursor pagination; jangan mengandalkan daftar notifikasi statis di client.
 - `deepLink` dan `joinUrl` harus divalidasi allowlist HTTPS/provider. Endpoint join meeting perlu audit user, meeting, waktu, dan outcome; jangan menyimpan token meeting pada audit.
 - Meeting harus mengikuti scope branch/assignment dan tidak membocorkan tautan rapat kepada user yang bukan peserta.
+- Endpoint `POST /meetings` harus memvalidasi hak penjadwal, waktu selesai setelah waktu mulai, peserta dalam scope branch, serta menyimpan audit create/update/cancel. URL provider hanya dikirim kepada peserta yang berhak.
+- `POST /meetings/join-by-code` harus rate-limit percobaan kode, tidak membedakan respons untuk kode yang tidak ada vs. user yang tidak berhak, serta menyimpan outcome audit tanpa menyimpan token provider.
 
 ## Attachment, retry, conflict, dan audit sync
 

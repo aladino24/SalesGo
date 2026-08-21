@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 
 import '../../core/auth/session_service.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../../app/widgets/sfa_feedback_dialog.dart';
 
 class LoginController extends GetxController {
   LoginController({SessionService? sessionService, AuthRepository? repository})
@@ -16,7 +17,7 @@ class LoginController extends GetxController {
 
   Future<void> login() async {
     if (username.value.trim().isEmpty || password.value.isEmpty) {
-      Get.snackbar('Login gagal', 'Username dan password wajib diisi.');
+      SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'Login belum lengkap', message: 'Username dan password wajib diisi.');
       return;
     }
     isLoading.value = true;
@@ -25,7 +26,7 @@ class LoginController extends GetxController {
       await _sessionService.saveSession(session);
       Get.offAllNamed('/home');
     } catch (_) {
-      Get.snackbar('Login gagal', 'Tidak dapat masuk. Periksa koneksi atau kredensial Anda.');
+      SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Login gagal', message: 'Tidak dapat masuk. Periksa koneksi atau kredensial Anda.');
     } finally {
       isLoading.value = false;
     }

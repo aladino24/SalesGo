@@ -13,6 +13,34 @@ Base URL: `https://<host>/v1`.
 - ID menggunakan string UUID atau ID server yang stabil.
 - Sukses: `200`/`201`; input tidak valid: `400`/`422`; tidak login: `401`; tidak berhak: `403`; duplikat/conflict: `409`.
 
+## Kode organisasi dan master data
+
+Backend menyimpan `branchId` (UUID/internal ID) dan `branchCode` (tepat tiga digit) pada **setiap** user serta record master yang scoped per cabang: outlet, produk, kategori, harga, stok, promosi, file, target, dan assignment. `branchCode` adalah bagian dari response agar client dapat menampilkan dan memvalidasi scope cache offline, namun otorisasi tetap berasal dari token, bukan nilai dari client.
+
+### Kode user/sales: `BBBRRRDDNN`
+
+Kode user/sales selalu 10 digit tanpa pemisah:
+
+| Bagian | Panjang | Contoh | Arti |
+|---|---:|---|---|
+| `BBB` | 3 | `001` | Kode cabang |
+| `RRR` | 3 | `001` | Kode role dari master role |
+| `DD` | 2 | `01` | Kode divisi sales dari master division |
+| `NN` | 2 | `01` | Increment unik dalam kombinasi cabang-role-divisi |
+
+Contoh `0010010101` berarti user Sales ke-01 pada divisi `01`, role `001`, cabang `001`. Role tidak boleh di-hardcode di client; mapping kode role dikelola backend (misalnya Sales `001`, Supervisor `002`, Branch Manager `003`, Key Account Manager `004`). Backend menolak kode yang tidak cocok dengan `branchId`, role, atau division user, dan menerapkan unique constraint untuk `(branch_id, role_code, division_code, increment_no)` serta `employee_code`. Bila increment telah melebihi `99`, backend mengembalikan `CODE_INCREMENT_EXHAUSTED`; perubahan format harus menjadi versi kontrak baru.
+
+### Kode outlet dan master scoped branch
+
+- Setiap `Outlet.code` **wajib diawali** `branchCode` tiga digit, contoh `001-OTL-0001`. Backend memvalidasi prefix tersebut sama dengan `outlet.branchCode`.
+- Setiap produk dan master lain yang tersedia per cabang wajib memiliki `branchId` dan `branchCode`. Produk pusat yang dibagikan ke banyak cabang tetap diproyeksikan ke scope cabang melalui tabel assignment/harga/stok per cabang.
+- `id` UUID tetap menjadi primary key dan referensi API. Kode bisnis tidak boleh menggantikan UUID pada payload transaksi offline.
+- Client hanya boleh mengirim `branchCode` sebagai metadata tampilan; backend mengambil cabang efektif dari access token dan menolak mismatch dengan `BRANCH_SCOPE_MISMATCH`.
+
+### Seed/dummy development
+
+Backend wajib menyediakan seed data **hanya** untuk environment `local`/`development`/`staging` melalui command atau migration eksplisit. Seed minimal mencakup cabang, role, division, user/sales, outlet, produk, harga/stok, assignment, visit, dan approval contoh dengan kode yang mengikuti aturan di atas. Seed tidak boleh berjalan otomatis di production, tidak boleh menjadi fallback pada aplikasi Flutter, dan harus aman dijalankan ulang (idempotent/upsert).
+
 Format error wajib:
 
 ```json
@@ -32,7 +60,7 @@ Format error wajib:
   "accessToken": "jwt-access-token",
   "refreshToken": "jwt-refresh-token",
   "expiresAt": "2026-08-20T12:00:00Z",
-  "user": { "id": "USR-001", "name": "Andi Pratama", "role": "sales" }
+  "user": { "id": "USR-001", "employeeCode": "0010010101", "branchId": "BR-001", "branchCode": "001", "divisionCode": "01", "name": "Andi Pratama", "role": "sales" }
 }
 ```
 
@@ -57,13 +85,13 @@ Body opsional: `{ "refreshToken": "..." }`. Response `204` atau `{ "success": tr
 Mengembalikan array:
 
 ```json
-[{ "id": "PRD-001", "name": "Susu Ultra", "sku": "SKU-001", "category": "Minuman", "price": 18000, "stock": 120, "imageUrl": "https://..." }]
+[{ "id": "PRD-001", "branchId": "BR-001", "branchCode": "001", "name": "Susu Ultra", "sku": "001-PRD-0001", "category": "Minuman", "price": 18000, "stock": 120, "imageUrl": "https://..." }]
 ```
 
 ### `GET /master/outlets`
 
 ```json
-[{ "id": "OUT-001", "name": "Toko Sumber Rejeki", "code": "OTL-001", "address": "Jl. Melati No. 12", "type": "Grosir", "ownerName": "Bapak Joko", "contactName": "Bapak Joko", "phone": "+628123456789", "latitude": -7.2575, "longitude": 112.7521, "salesResponsible": "Andi Pratama", "status": "Active" }]
+[{ "id": "OUT-001", "branchId": "BR-001", "branchCode": "001", "name": "Toko Sumber Rejeki", "code": "001-OTL-0001", "address": "Jl. Melati No. 12", "type": "Grosir", "ownerName": "Bapak Joko", "contactName": "Bapak Joko", "phone": "+628123456789", "latitude": -7.2575, "longitude": 112.7521, "salesResponsible": "Andi Pratama", "status": "Active" }]
 ```
 
 ### `GET /master/outlets/{id}/performance`
@@ -85,8 +113,8 @@ Endpoint khusus untuk **Download Data Terbaru**. Mengembalikan seluruh master da
   "revision": "master-2026-08-20T02:00:00Z",
   "generatedAt": "2026-08-20T02:00:00Z",
   "datasets": {
-    "products": [{ "id": "PRD-001", "name": "Susu Ultra", "sku": "SKU-001", "category": "Minuman", "price": 18000, "stock": 120, "imageUrl": "https://..." }],
-    "outlets": [{ "id": "OUT-001", "name": "Toko Sumber Rejeki", "code": "OTL-001", "address": "Jl. Melati No. 12", "type": "Grosir", "latitude": -7.2575, "longitude": 112.7521, "salesResponsible": "Andi Pratama", "status": "Active" }]
+    "products": [{ "id": "PRD-001", "branchId": "BR-001", "branchCode": "001", "name": "Susu Ultra", "sku": "001-PRD-0001", "category": "Minuman", "price": 18000, "stock": 120, "imageUrl": "https://..." }],
+    "outlets": [{ "id": "OUT-001", "branchId": "BR-001", "branchCode": "001", "name": "Toko Sumber Rejeki", "code": "001-OTL-0001", "address": "Jl. Melati No. 12", "type": "Grosir", "latitude": -7.2575, "longitude": 112.7521, "salesResponsible": "Andi Pratama", "status": "Active" }]
   }
 }
 ```
@@ -347,6 +375,27 @@ Mengembalikan meeting dalam scope user/branch: `id`, `title`, `startsAt`, `endsA
 
 Mencatat intent bergabung untuk audit lalu mengembalikan `{ "joinUrl": "..." }`. Backend memeriksa bahwa user adalah peserta dan meeting dapat diakses.
 
+### `POST /meetings`
+
+Membuat jadwal meeting oleh role yang memiliki izin. Request minimal:
+
+```json
+{
+  "id": "uuid-client",
+  "title": "Briefing Pagi Sales",
+  "description": "Target dan aktivitas hari ini",
+  "startsAt": "2026-08-21T09:00:00+07:00",
+  "endsAt": "2026-08-21T10:00:00+07:00",
+  "participantIds": []
+}
+```
+
+Backend menentukan `hostName`, scope branch, provider, dan `joinUrl`; mencatat audit penjadwalan; serta wajib menghormati `Idempotency-Key`. Response mengikuti field `GET /meetings`, dengan `agenda` opsional (`title`, `time`).
+
+### `POST /meetings/join-by-code`
+
+Menerima `{ "meetingId": "123 456 7890" }`, memverifikasi peserta serta status rapat, mencatat audit join, dan mengembalikan `{ "joinUrl": "https://..." }`. Kode atau URL tidak boleh dipakai untuk melewati scope branch/peserta.
+
 ## Offline sync
 
 Client menyimpan transaksi di Hive dan mengirim ulang saat online. Backend wajib menyimpan `Idempotency-Key` beserta response untuk mencegah duplikasi. Jika konflik bisnis terjadi, respons harus `409` dengan `code` yang jelas. Jangan membuat transaksi kedua untuk key yang sama.
@@ -388,7 +437,7 @@ Mengembalikan snapshot **server-confirmed** milik user dan scope branch yang sed
   },
   "datasets": {
     "products": [], "outlets": [], "visits": [], "salesOrders": [],
-    "outletTransactions": [], "visitActions": [], "visitTimeline": [], "journeys": [], "deliveryNotes": [], "approvals": [],
+    "outletTransactions": [], "visitActions": [], "visitTimeline": [], "journeys": [], "deliveryNotes": [], "meetings": [], "approvals": [],
     "promotions": [], "files": []
   }
 }

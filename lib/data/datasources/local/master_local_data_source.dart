@@ -11,15 +11,11 @@ class MasterLocalDataSource {
 
   Future<List<ProductModel>> getProducts() async {
     final box = await _box(_productsBoxName);
-    final hasServerSnapshot = Hive.box('app_box').get('has_server_state_snapshot', defaultValue: false) as bool;
-    if (box.isEmpty && !hasServerSnapshot) await saveProducts(_seedProducts);
     return box.values.map((value) => ProductModel.fromJson(Map<String, dynamic>.from(value as Map))).toList();
   }
 
   Future<List<OutletModel>> getOutlets() async {
     final box = await _box(_outletsBoxName);
-    final hasServerSnapshot = Hive.box('app_box').get('has_server_state_snapshot', defaultValue: false) as bool;
-    if (box.isEmpty && !hasServerSnapshot) await saveOutlets(_seedOutlets);
     return box.values.map((value) => OutletModel.fromJson(Map<String, dynamic>.from(value as Map))).toList();
   }
 
@@ -58,13 +54,4 @@ class MasterLocalDataSource {
       rethrow;
     }
   }
-
-  static final _seedProducts = [
-    ProductModel(id: 'PRD-001', name: 'Susu Ultra', sku: 'SKU-001', category: 'Minuman', price: 18000, stock: 120, imageUrl: ''),
-    ProductModel(id: 'PRD-002', name: 'Mie Instan', sku: 'SKU-002', category: 'Makanan', price: 4500, stock: 260, imageUrl: ''),
-  ];
-  static final _seedOutlets = [
-    OutletModel(id: 'OUT-001', name: 'Outlet A', code: 'A-01', address: 'Jl. Sudirman No. 10', type: 'Retail', latitude: -6.2088, longitude: 106.8456, salesResponsible: 'Raka', status: 'Active'),
-    OutletModel(id: 'OUT-002', name: 'Outlet B', code: 'B-02', address: 'Jl. Gatot Subroto No. 20', type: 'Modern Trade', latitude: -6.2167, longitude: 106.8024, salesResponsible: 'Raka', status: 'Active'),
-  ];
 }

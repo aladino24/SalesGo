@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/widgets/sfa_feedback_dialog.dart';
 import '../../core/location/location_service.dart';
 import '../../core/media/image_capture_service.dart';
 import '../../core/network/api_endpoints.dart';
@@ -109,29 +110,20 @@ class _OutletTransactionPageState extends State<OutletTransactionPage> {
 
   Future<void> _save() async {
     if (_needsItem && _item.text.trim().isEmpty) {
-      Get.snackbar(
-        'Data belum lengkap',
-        'Nama produk atau hadiah wajib diisi.',
-      );
+      SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'Data belum lengkap', message: 'Nama produk atau hadiah wajib diisi.');
       return;
     }
     if (_isReturn &&
         (_reason.text.trim().isEmpty ||
             _condition.text.trim().isEmpty ||
             _photoPath == null)) {
-      Get.snackbar(
-        'Retur belum lengkap',
-        'Alasan, kondisi barang, dan foto retur wajib diisi.',
-      );
+      SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'Retur belum lengkap', message: 'Alasan, kondisi barang, dan foto retur wajib diisi.');
       return;
     }
     if (_isReceivable &&
         (_invoice.text.trim().isEmpty ||
             (double.tryParse(_amount.text) ?? 0) <= 0)) {
-      Get.snackbar(
-        'Piutang belum lengkap',
-        'Nomor invoice dan nominal pembayaran wajib diisi.',
-      );
+      SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'Piutang belum lengkap', message: 'Nomor invoice dan nominal pembayaran wajib diisi.');
       return;
     }
     setState(() => _saving = true);
@@ -166,11 +158,7 @@ class _OutletTransactionPageState extends State<OutletTransactionPage> {
     if (!mounted) return;
     setState(() => _saving = false);
     Get.back(result: true);
-    Get.snackbar(
-      'Tersimpan',
-      '${widget.type.title} tersimpan lokal dan menunggu sync.',
-      snackPosition: SnackPosition.BOTTOM,
-    );
+    await SfaFeedbackDialog.show(type: SfaFeedbackType.success, title: 'Tersimpan', message: '${widget.type.title} tersimpan lokal dan menunggu sync.');
   }
 
   @override

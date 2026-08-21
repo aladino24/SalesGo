@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_ui.dart';
+import '../../app/widgets/sfa_feedback_dialog.dart';
 import '../../data/models/outlet_model.dart';
 import '../../data/models/visit_model.dart';
 import '../../data/models/outlet_performance_model.dart';
@@ -534,10 +535,7 @@ Future<void> _callOutlet(String phone) async {
     path: phone.replaceAll(RegExp(r'[^0-9+]'), ''),
   );
   if (!await launchUrl(uri)) {
-    Get.snackbar(
-      'Tidak dapat menelepon',
-      'Aplikasi telepon tidak tersedia pada perangkat ini.',
-    );
+    SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Tidak dapat menelepon', message: 'Aplikasi telepon tidak tersedia pada perangkat ini.');
   }
 }
 

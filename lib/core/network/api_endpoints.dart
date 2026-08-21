@@ -9,6 +9,7 @@ abstract final class ApiEndpoints {
   static const visitActivities = '/visit-activities';
   static const notifications = '/notifications';
   static const meetings = '/meetings';
+  static const meetingJoinByCode = '/meetings/join-by-code';
   static const salesOrders = '/sales-orders';
   static const checkIns = '/visits/check-in';
   static const checkOuts = '/visits/check-out';
