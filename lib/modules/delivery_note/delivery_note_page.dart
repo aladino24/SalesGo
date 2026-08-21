@@ -86,7 +86,7 @@ class _DeliveryNotePageState extends State<DeliveryNotePage> {
                 onRefresh: _load,
                 child: ListView.separated(
                   padding: const EdgeInsets.all(16), itemCount: _items.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (_, index) => _DeliveryNoteCard(item: _items[index], onStatus: _change),
                 ),
               ),
@@ -116,3 +116,4 @@ class _DeliveryNoteCard extends StatelessWidget {
       ]),
     ),
   );
+}
