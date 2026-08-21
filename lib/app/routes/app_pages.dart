@@ -17,6 +17,7 @@ import '../../modules/visit/visit_page.dart';
 import '../../modules/journey/journey_page.dart';
 import '../../modules/journey/journey_binding.dart';
 import '../../modules/notification/notification_page.dart';
+import '../../modules/notification/notification_binding.dart';
 import '../../modules/monitoring/monitoring_binding.dart';
 import '../../modules/monitoring/monitoring_page.dart';
 import '../../modules/reports/report_binding.dart';
@@ -63,7 +64,7 @@ class AppPages {
       binding: ApprovalBinding(),
     ),
     GetPage(name: AppRoutes.journey, page: () => const JourneyPage(), binding: JourneyBinding()),
-    GetPage(name: AppRoutes.notifications, page: () => const NotificationPage()),
+    GetPage(name: AppRoutes.notifications, page: () => const NotificationPage(), binding: NotificationBinding()),
     GetPage(name: AppRoutes.monitoring, page: () => const MonitoringPage(), binding: MonitoringBinding()),
     GetPage(name: AppRoutes.reports, page: () => const ReportPage(), binding: ReportBinding()),
     GetPage(name: AppRoutes.meetings, page: () => const MeetingPage(), binding: MeetingBinding()),

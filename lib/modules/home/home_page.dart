@@ -16,6 +16,7 @@ import '../information/information_controller.dart';
 import '../../data/models/important_file_model.dart';
 import '../../data/models/promotion_model.dart';
 import '../visit/visit_page.dart';
+import '../notification/notification_controller.dart';
 import 'home_controller.dart';
 
 class HomePage extends GetView<HomeController> {
@@ -76,6 +77,7 @@ class _DashboardTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final session = Get.find<SessionService>();
     final home = Get.find<HomeController>();
+    final notifications = Get.find<NotificationController>();
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -99,9 +101,7 @@ class _DashboardTab extends StatelessWidget {
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            session.userName.value.isEmpty
-                                ? 'Andi Pratama'
-                                : session.userName.value,
+                            session.userName.value.isEmpty ? 'Pengguna' : session.userName.value,
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w800,
@@ -116,25 +116,27 @@ class _DashboardTab extends StatelessWidget {
                       ),
                     ),
                   ),
-                  IconButton(
+                  Obx(() => IconButton(
                     onPressed: () => Get.toNamed(AppRoutes.notifications),
                     icon: Badge(
+                      isLabelVisible: notifications.unreadCount > 0,
+                      label: Text(notifications.unreadCount > 99 ? '99+' : '${notifications.unreadCount}'),
                       child: const Icon(Icons.notifications_none_rounded),
                     ),
-                  ),
+                  )),
                 ],
               ),
               const SizedBox(height: 18),
               Obx(() => _SalesSummary(data: home.dashboard.value)),
               const SizedBox(height: 12),
-              const Row(
+              Obx(() => Row(
                 children: [
                   Expanded(
                     child: _MiniMetric(
                       icon: Icons.flag_rounded,
                       title: 'Target',
-                      value: 'Rp 70.000.000',
-                      progress: '69,6%',
+                      value: 'Rp ${(home.dashboard.value?.monthlyTarget ?? 0).toStringAsFixed(0)}',
+                      progress: '${_achievement(home.dashboard.value)}%',
                       color: AppColors.primary,
                     ),
                   ),
@@ -143,8 +145,8 @@ class _DashboardTab extends StatelessWidget {
                     child: _MiniMetric(
                       icon: Icons.route_rounded,
                       title: 'Kunjungan',
-                      value: '32 / 45',
-                      progress: '71%',
+                      value: '${home.dashboard.value?.visitedOutlets ?? 0} / ${home.dashboard.value?.totalOutlets ?? 0}',
+                      progress: 'Bulan ini',
                       color: AppColors.success,
                     ),
                   ),
@@ -153,17 +155,17 @@ class _DashboardTab extends StatelessWidget {
                     child: _MiniMetric(
                       icon: Icons.account_balance_wallet_rounded,
                       title: 'Insentif',
-                      value: 'Rp 5.250.000',
-                      progress: '↑ 6%',
+                      value: 'Rp ${(home.dashboard.value?.incentive ?? 0).toStringAsFixed(0)}',
+                      progress: '${(home.dashboard.value?.revenueGrowth ?? 0).toStringAsFixed(1)}%',
                       color: Color(0xFF7258EF),
                     ),
                   ),
                 ],
-              ),
+              )),
               const SizedBox(height: 20),
               const SfaSectionTitle(title: 'Omset 6 Bulan Terakhir'),
               const SizedBox(height: 8),
-              const _BarChartCard(),
+              Obx(() => _BarChartCard(data: home.dashboard.value?.chart ?? const [])),
               const SizedBox(height: 20),
               SfaSectionTitle(
                 title: 'Perjalanan Hari Ini',
@@ -242,6 +244,12 @@ class _SalesSummary extends StatelessWidget {
   );
 }
 
+String _achievement(DashboardModel? data) {
+  final target = data?.monthlyTarget ?? 0;
+  if (target <= 0) return '0.0';
+  return (((data?.monthlyRevenue ?? 0) / target) * 100).toStringAsFixed(1);
+}
+
 class _MiniMetric extends StatelessWidget {
   const _MiniMetric({
     required this.icon,
@@ -292,11 +300,13 @@ class _MiniMetric extends StatelessWidget {
 }
 
 class _BarChartCard extends StatelessWidget {
-  const _BarChartCard();
+  const _BarChartCard({required this.data});
+  final List<Map<String, dynamic>> data;
   @override
   Widget build(BuildContext context) {
-    const bars = [48.0, 72.0, 98.0, 78.0, 86.0, 63.0],
-        months = ['Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu'];
+    final points = data.length > 7 ? data.sublist(data.length - 7) : data;
+    if (points.isEmpty) return const SfaEmptyState(icon: Icons.bar_chart_outlined, title: 'Belum ada omset', description: 'Grafik akan muncul setelah transaksi committed diterima server.');
+    final maximum = points.map((item) => (item['revenue'] as num? ?? 0).toDouble()).fold(0.0, (a, b) => a > b ? a : b);
     return Card(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
@@ -305,7 +315,7 @@ class _BarChartCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: List.generate(
-              bars.length,
+              points.length,
               (index) => Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 5),
@@ -316,12 +326,10 @@ class _BarChartCard extends StatelessWidget {
                         child: Align(
                           alignment: Alignment.bottomCenter,
                           child: FractionallySizedBox(
-                            heightFactor: bars[index] / 100,
+                            heightFactor: maximum == 0 ? 0 : ((points[index]['revenue'] as num? ?? 0).toDouble() / maximum),
                             child: DecoratedBox(
                               decoration: BoxDecoration(
-                                color: index == 3
-                                    ? AppColors.primaryDark
-                                    : AppColors.primary.withValues(alpha: .72),
+                                color: AppColors.primary.withValues(alpha: .72),
                                 borderRadius: const BorderRadius.vertical(
                                   top: Radius.circular(4),
                                 ),
@@ -332,7 +340,7 @@ class _BarChartCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        months[index],
+                        points[index]['date']?.toString().substring(5) ?? '-',
                         style: const TextStyle(
                           fontSize: 10,
                           color: AppColors.textSecondary,

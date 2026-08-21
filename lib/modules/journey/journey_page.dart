@@ -1,121 +1,77 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../core/sync/sync_manager.dart';
-import '../../data/datasources/local/visit_local_data_source.dart';
-import '../../data/models/visit_model.dart';
+import '../../app/widgets/sfa_ui.dart';
+import '../../data/models/journey_model.dart';
+import 'journey_controller.dart';
 
-class JourneyPage extends StatelessWidget {
+class JourneyPage extends GetView<JourneyController> {
   const JourneyPage({super.key});
 
   Future<void> _createJourney(BuildContext context, bool outOfTown) async {
-    final box = Hive.isBoxOpen('journeys')
-        ? Hive.box('journeys')
-        : await Hive.openBox('journeys');
-    const uuid = Uuid();
-    final id = uuid.v4();
-    final payload = {
-      'id': id,
-      'type': outOfTown ? 'out_of_town' : 'in_city',
-      'status': 'Planned',
-      'createdAt': DateTime.now().toIso8601String(),
-    };
-    await box.put(id, payload);
-    await Get.find<SyncManager>().queueItem(
-      type: 'journey_create',
-      endpoint: '/journeys',
-      method: 'POST',
-      payload: payload,
-      uuid: id,
-      idempotencyKey: uuid.v4(),
-    );
-    Get.snackbar(
-      'Perjalanan dibuat',
-      'Perjalanan tersimpan lokal dan menunggu sync.',
-    );
+    final destination = TextEditingController();
+    final result = await Get.dialog<bool>(AlertDialog(
+      title: Text(outOfTown ? 'Perjalanan Luar Kota' : 'Perjalanan Dalam Kota'),
+      content: TextField(
+        controller: destination,
+        decoration: const InputDecoration(labelText: 'Tujuan perjalanan'),
+      ),
+      actions: [
+        TextButton(onPressed: () => Get.back(result: false), child: const Text('Batal')),
+        FilledButton(onPressed: () => Get.back(result: true), child: const Text('Simpan')),
+      ],
+    ));
+    if (result == true && destination.text.trim().isNotEmpty) {
+      const uuid = Uuid();
+      final now = DateTime.now();
+      await controller.create(JourneyModel(
+        id: uuid.v4(), type: outOfTown ? 'out_of_town' : 'in_city',
+        destination: destination.text.trim(), startAt: now, endAt: now,
+        status: 'Planned', createdAt: now,
+      ));
+    }
+    destination.dispose();
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text(
-        'Perjalanan Sales',
-        style: TextStyle(fontWeight: FontWeight.w800),
-      ),
+    appBar: AppBar(title: const Text('Perjalanan Sales', style: TextStyle(fontWeight: FontWeight.w800))),
+    floatingActionButton: FloatingActionButton.extended(
+      onPressed: () => _createJourney(context, false), icon: const Icon(Icons.add), label: const Text('Buat perjalanan'),
     ),
-    body: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const _RouteProgressCard(),
-        const SizedBox(height: 20),
-        const Text(
-          'Buat Perjalanan',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 10),
-        FilledButton.icon(
-          onPressed: () => _createJourney(context, false),
-          icon: const Icon(Icons.location_city_rounded),
-          label: const Text('Perjalanan Dalam Kota'),
-        ),
-        const SizedBox(height: 10),
-        OutlinedButton.icon(
-          onPressed: () => _createJourney(context, true),
-          icon: const Icon(Icons.luggage_rounded),
-          label: const Text('Perjalanan Luar Kota'),
-        ),
-      ],
-    ),
-  );
-}
-
-class _RouteProgressCard extends StatelessWidget {
-  const _RouteProgressCard();
-
-  @override
-  Widget build(BuildContext context) => FutureBuilder<List<VisitModel>>(
-    future: VisitLocalDataSource().getVisits(),
-    builder: (context, snapshot) {
-      if (snapshot.connectionState != ConnectionState.done) {
-        return const Card(
-          child: ListTile(
-            leading: CircleAvatar(child: Icon(Icons.route_rounded)),
-            title: Text('Memuat progres rute...'),
-          ),
+    body: Obx(() {
+      if (controller.isLoading.value && controller.journeys.isEmpty) return const Center(child: CircularProgressIndicator());
+      if (controller.journeys.isEmpty) {
+        return SfaEmptyState(
+          icon: Icons.route_outlined, title: 'Belum ada perjalanan',
+          description: 'Buat perjalanan dalam atau luar kota. Data akan dimuat dari server saat online.',
+          actionLabel: 'Buat perjalanan', onAction: () => _createJourney(context, false),
         );
       }
-      final today = DateTime.now();
-      final visits = (snapshot.data ?? []).where((visit) {
-        final date = visit.createdAt.toLocal();
-        return date.year == today.year &&
-            date.month == today.month &&
-            date.day == today.day;
-      }).toList();
-      final total = visits.length;
-      final visited = visits
-          .where((visit) => visit.status == 'Completed')
-          .length;
-      final progress = total == 0 ? 0 : (visited / total * 100).round();
-      return Card(
-        child: ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.route_rounded)),
-          title: const Text(
-            'Rute hari ini',
-            style: TextStyle(fontWeight: FontWeight.w800),
-          ),
-          subtitle: Text(
-            total == 0
-                ? 'Belum ada outlet pada rute hari ini'
-                : '$total outlet • $visited dikunjungi',
-          ),
-          trailing: Text(
-            '$progress%',
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
+      return RefreshIndicator(
+        onRefresh: controller.load,
+        child: ListView.separated(
+          padding: const EdgeInsets.all(16), itemCount: controller.journeys.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (_, index) {
+            final item = controller.journeys[index];
+            return Card(child: ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.route_rounded)),
+              title: Text(item.destination, style: const TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: Text('${item.type == 'out_of_town' ? 'Luar kota' : 'Dalam kota'} • ${item.approvalStatus}'),
+              trailing: item.status == 'Planned'
+                  ? FilledButton(
+                      onPressed: item.type == 'out_of_town' && item.approvalStatus != 'Approved' ? null : () => controller.changeStatus(item, 'Active'),
+                      child: const Text('Mulai'),
+                    )
+                  : item.status == 'Active'
+                      ? FilledButton(onPressed: () => controller.changeStatus(item, 'Completed'), child: const Text('Selesai'))
+                      : SfaStatusChip(label: item.status),
+            ));
+          },
         ),
       );
-    },
+    }),
   );
 }

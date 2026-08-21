@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../core/auth/session_service.dart';
+import '../../core/notifications/push_notification_service.dart';
+import '../notification/notification_controller.dart';
 import '../../core/storage/sync_storage.dart';
 import '../../core/storage/local_storage.dart';
 import '../../core/sync/sync_manager.dart';
@@ -108,6 +110,10 @@ class SettingsController extends GetxController {
   }
 
   Future<void> logout() async {
+    await Get.find<PushNotificationService>().stop();
+    if (Get.isRegistered<NotificationController>()) {
+      Get.delete<NotificationController>(force: true);
+    }
     await Get.find<SessionService>().logout();
     Get.offAllNamed('/login');
   }

@@ -3,8 +3,11 @@ import 'package:get/get.dart';
 import 'package:uuid/uuid.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_ui.dart';
+import '../../app/widgets/sfa_feedback_dialog.dart';
 import '../../data/models/delivery_note_model.dart';
 import '../../data/repositories/delivery_note_repository.dart';
+import '../../data/repositories/master_repository.dart';
+import '../../core/network/network_info.dart';
 
 class DeliveryNotePage extends StatefulWidget {
   const DeliveryNotePage({super.key});
@@ -31,9 +34,16 @@ class _DeliveryNotePageState extends State<DeliveryNotePage> {
   Future<void> _create() async {
     final number = TextEditingController();
     final destination = TextEditingController();
-    final product = TextEditingController();
+    final products = await MasterRepository().getProducts(isOnline: await Get.find<NetworkInfo>().isConnected);
+    if (products.isEmpty) {
+      await SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'Produk belum tersedia', message: 'Unduh data master produk terlebih dahulu sebelum membuat surat jalan.');
+      number.dispose();
+      destination.dispose();
+      return;
+    }
+    String productId = products.first.id;
     final result = await Get.dialog<bool>(
-      AlertDialog(
+      StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
         title: const Text('Buat Surat Jalan'),
         content: SingleChildScrollView(
           child: Column(
@@ -49,9 +59,11 @@ class _DeliveryNotePageState extends State<DeliveryNotePage> {
                 controller: destination,
                 decoration: const InputDecoration(labelText: 'Tujuan / Outlet'),
               ),
-              TextField(
-                controller: product,
-                decoration: const InputDecoration(labelText: 'Barang'),
+              DropdownButtonFormField<String>(
+                value: productId,
+                decoration: const InputDecoration(labelText: 'Produk'),
+                items: products.map((item) => DropdownMenuItem(value: item.id, child: Text(item.name))).toList(),
+                onChanged: (value) => setDialogState(() => productId = value ?? productId),
               ),
             ],
           ),
@@ -66,7 +78,7 @@ class _DeliveryNotePageState extends State<DeliveryNotePage> {
             child: const Text('Simpan'),
           ),
         ],
-      ),
+      )),
     );
     if (result == true &&
         number.text.trim().isNotEmpty &&
@@ -79,9 +91,7 @@ class _DeliveryNotePageState extends State<DeliveryNotePage> {
           destination: destination.text.trim(),
           items: [
             {
-              'productName': product.text.trim().isEmpty
-                  ? 'Barang'
-                  : product.text.trim(),
+              'productId': productId,
               'quantity': 1,
             },
           ],
@@ -91,14 +101,10 @@ class _DeliveryNotePageState extends State<DeliveryNotePage> {
         ),
       );
       await _load();
-      Get.snackbar(
-        'Surat jalan dibuat',
-        'Menunggu sinkronisasi dan approval Branch Manager.',
-      );
+      await SfaFeedbackDialog.show(type: SfaFeedbackType.success, title: 'Surat jalan dibuat', message: 'Data dikirim ke server atau masuk antrean sync saat offline.');
     }
     number.dispose();
     destination.dispose();
-    product.dispose();
   }
 
   @override

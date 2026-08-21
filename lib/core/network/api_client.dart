@@ -142,13 +142,19 @@ class ApiClient {
     dynamic data,
     Map<String, dynamic>? queryParameters,
     Options? options,
+    String? idempotencyKey,
   }) async {
     try {
+      final opts = options ?? Options();
+      if (idempotencyKey != null) {
+        opts.headers ??= {};
+        opts.headers!['Idempotency-Key'] = idempotencyKey;
+      }
       final response = await _dio.delete<T>(
         endpoint,
         data: data,
         queryParameters: queryParameters,
-        options: options,
+        options: opts,
       );
       return response.data as T;
     } on DioException catch (e) {

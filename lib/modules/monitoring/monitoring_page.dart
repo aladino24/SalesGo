@@ -34,7 +34,7 @@ class _ActivityList extends StatelessWidget {
   final List<Map<String, dynamic>> items; final Future<void> Function() onRefresh;
   @override Widget build(BuildContext context) => _RefreshList(
     items: items, onRefresh: onRefresh, emptyIcon: Icons.history_toggle_off_rounded, emptyTitle: 'Belum ada aktivitas', emptyDescription: 'Aktivitas tim dari server akan tampil di sini.',
-    itemBuilder: (item) => ListTile(leading: const CircleAvatar(child: Icon(Icons.person_pin_circle_outlined)), title: Text(item['salesName']?.toString() ?? 'Sales'), subtitle: Text(item['description']?.toString() ?? item['activity']?.toString() ?? 'Aktivitas belum tersedia'), trailing: Text(item['occurredAt']?.toString() ?? '')),
+    itemBuilder: (item) => ListTile(leading: const CircleAvatar(child: Icon(Icons.person_pin_circle_outlined)), title: Text(item['salesName']?.toString() ?? 'Sales'), subtitle: Text(item['description']?.toString() ?? 'Lokasi terakhir diterima'), trailing: Text(item['recordedAt']?.toString() ?? '')),
   );
 }
 
