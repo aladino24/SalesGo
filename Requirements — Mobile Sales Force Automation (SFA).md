@@ -1973,6 +1973,36 @@ Contoh:
 
 ```text
 UUID
+
+## 65.1 Kode Cabang, User/Sales, Outlet, dan Master Data
+
+Backend wajib memiliki data master cabang, role, dan divisi sales sebelum user, outlet, produk, atau transaksi dibuat.
+
+### Format kode user/sales
+
+Kode user/sales terdiri dari gabungan berikut tanpa pemisah: `BBBRRRDDNN`.
+
+| Bagian | Panjang | Keterangan |
+|---|---:|---|
+| `BBB` | 3 digit | Kode cabang |
+| `RRR` | 3 digit | Kode role |
+| `DD` | 2 digit | Kode divisi sales |
+| `NN` | 2 digit | Increment unik dalam kombinasi cabang-role-divisi |
+
+Contoh: `0010010101`. Kode user/sales tidak menggantikan UUID `userId` sebagai relasi teknis.
+
+### Scope cabang master data
+
+- Setiap user/sales, outlet, produk, harga, stok, promosi, file penting, target, dan assignment harus memiliki `branchId` serta `branchCode`.
+- Kode outlet wajib diawali kode cabang tiga digit, contoh `001-OTL-0001` untuk cabang `001`.
+- Kode role dan divisi dikelola backend, bukan di-hardcode pada client.
+- Backend memvalidasi konsistensi prefix kode dengan branch record dan menolak mismatch scope cabang.
+
+### Dummy/seed backend
+
+- Backend harus menyediakan command/migration seed idempotent untuk environment local, development, dan staging.
+- Seed mencakup cabang, role, divisi, user/sales, outlet, produk, harga/stok, assignment, visit, serta approval contoh dengan format kode yang valid.
+- Seed dilarang dijalankan otomatis di production atau digunakan sebagai fallback data pada aplikasi mobile production.
 ```
 
 Ketika sync berhasil:

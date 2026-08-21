@@ -28,19 +28,11 @@ class MonitoringController extends GetxController {
     isLoading.value = true;
     try {
       final online = await _networkInfo.isConnected;
-      final results = await Future.wait([
-        _repository.get(endpoint: ApiEndpoints.monitoringActivities, cacheKey: 'activities', online: online),
-        _repository.get(endpoint: ApiEndpoints.monitoringVisits, cacheKey: 'visits', online: online),
-        _repository.get(endpoint: ApiEndpoints.monitoringPerformance, cacheKey: 'performance', online: online),
-      ]);
-      activities.assignAll(_records(results[0], 'activities'));
-      visits.assignAll(_records(results[1], 'visits'));
-      performance.assignAll(_records(results[2], 'members'));
+      final members = await _repository.getList(endpoint: ApiEndpoints.monitoringTeam, cacheKey: 'team', online: online);
+      activities.assignAll(members.where((item) => item['lastLocation'] is Map).map((item) => {...Map<String, dynamic>.from(item['lastLocation'] as Map), 'salesName': item['name'], 'employeeCode': item['employeeCode']}).toList());
+      visits.assignAll(members.where((item) => item['activeVisit'] is Map).map((item) => {...Map<String, dynamic>.from(item['activeVisit'] as Map), 'salesName': item['name'], 'employeeCode': item['employeeCode']}).toList());
+      performance.clear();
     } finally { isLoading.value = false; }
   }
 
-  List<Map<String, dynamic>> _records(Map<String, dynamic> response, String key) {
-    final list = response[key];
-    return list is List ? list.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList() : [];
-  }
 }

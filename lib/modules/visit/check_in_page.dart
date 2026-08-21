@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_open_street_map.dart';
 import '../../app/widgets/sfa_ui.dart';
+import '../../app/widgets/sfa_feedback_dialog.dart';
 import '../../core/location/location_service.dart';
 import '../../core/media/image_capture_service.dart';
 import '../../core/network/api_endpoints.dart';
@@ -90,7 +91,7 @@ class _CheckInPageState extends State<CheckInPage> {
 
   Future<void> _submit() async {
     if (_location == null) {
-      Get.snackbar('GPS diperlukan', _locationError ?? 'Ambil lokasi terlebih dahulu.');
+      SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'GPS diperlukan', message: _locationError ?? 'Ambil lokasi terlebih dahulu.');
       return;
     }
     if (!_isWithinRadius && _overrideReason == null) {
@@ -98,7 +99,7 @@ class _CheckInPageState extends State<CheckInPage> {
       if (_overrideReason == null) return;
     }
     if (_photoPath == null) {
-      Get.snackbar('Foto diperlukan', 'Ambil foto bukti kunjungan terlebih dahulu.');
+      SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'Foto diperlukan', message: 'Ambil foto bukti kunjungan terlebih dahulu.');
       return;
     }
 
@@ -150,11 +151,7 @@ class _CheckInPageState extends State<CheckInPage> {
 
       if (!mounted) return;
       Get.back(result: visit);
-      Get.snackbar(
-        isOverride ? 'Override diajukan' : 'Check-in berhasil',
-        isOverride ? 'Check-in di luar radius menunggu approval.' : 'Kunjungan outlet dimulai dan akan disinkronkan saat online.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      await SfaFeedbackDialog.show(type: isOverride ? SfaFeedbackType.approval : SfaFeedbackType.success, title: isOverride ? 'Override diajukan' : 'Check-in berhasil', message: isOverride ? 'Check-in di luar radius menunggu approval.' : 'Kunjungan outlet dimulai dan akan disinkronkan saat online.');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -179,7 +176,7 @@ class _CheckInPageState extends State<CheckInPage> {
     if (submitted == true && reason.text.trim().isNotEmpty) {
       setState(() => _overrideReason = reason.text.trim());
     } else if (submitted == true) {
-      Get.snackbar('Alasan wajib', 'Tuliskan alasan untuk mengajukan override.');
+      SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'Alasan wajib', message: 'Tuliskan alasan untuk mengajukan override.');
     }
     reason.dispose();
   }

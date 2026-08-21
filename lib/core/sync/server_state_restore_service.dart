@@ -74,6 +74,7 @@ class ServerStateRestoreService {
     'visitTimeline': 'visit_timeline',
     'journeys': 'journeys',
     'deliveryNotes': 'delivery_notes',
+    'meetings': 'meetings',
     'approvals': 'approvals',
     'promotions': 'promotions',
     'files': 'files',

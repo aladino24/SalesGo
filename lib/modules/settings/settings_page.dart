@@ -45,9 +45,7 @@ class SettingsPage extends GetView<SettingsController> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              session.userName.value.isEmpty
-                                  ? 'Andi Pratama'
-                                  : session.userName.value,
+                              session.userName.value.isEmpty ? 'Pengguna' : session.userName.value,
                               style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
@@ -64,7 +62,7 @@ class SettingsPage extends GetView<SettingsController> {
                             ),
                             const SizedBox(height: 4),
                             const Text(
-                              'SP00123',
+                              'Kode pengguna tersedia setelah profil dimuat',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: AppColors.textSecondary,

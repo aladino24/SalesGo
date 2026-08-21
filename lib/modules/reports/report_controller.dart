@@ -36,10 +36,18 @@ class ReportController extends GetxController {
     if (!isAllowed) return;
     isLoading.value = true;
     try {
-      report.value = await _repository.getReport(
+      final summary = await _repository.getReport(
         type: selectedType.value,
         online: await _networkInfo.isConnected,
       );
+      final byType = summary['byType'];
+      final rows = <Map<String, dynamic>>[
+        {'label': 'Omset committed', 'subtitle': 'Sales order committed / selesai', 'value': summary['committedRevenue'] ?? 0},
+        {'label': 'Order committed', 'subtitle': 'Jumlah order committed / selesai', 'value': summary['committedOrderCount'] ?? 0},
+        {'label': 'Seluruh transaksi', 'subtitle': 'Sesuai filter periode', 'value': summary['transactionCount'] ?? 0},
+        if (byType is List) ...byType.whereType<Map>().map((item) => {'label': item['type']?.toString().replaceAll('_', ' ') ?? 'Transaksi', 'subtitle': '${item['count'] ?? 0} transaksi', 'value': item['amount'] ?? 0}),
+      ];
+      report.value = {...summary, 'rows': rows};
     } finally {
       isLoading.value = false;
     }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../core/auth/session_service.dart';
+import '../../core/notifications/push_notification_service.dart';
+import '../notification/notification_controller.dart';
 import '../../core/storage/sync_storage.dart';
 import '../../core/storage/local_storage.dart';
 import '../../core/sync/sync_manager.dart';
@@ -11,6 +13,7 @@ import '../home/home_controller.dart';
 import '../visit/visit_controller.dart';
 import '../product/product_controller.dart';
 import '../outlet/outlet_controller.dart';
+import '../../app/widgets/sfa_feedback_dialog.dart';
 
 class SettingsController extends GetxController {
   final RxBool isDarkMode = false.obs;
@@ -33,7 +36,7 @@ class SettingsController extends GetxController {
     _loadMasterDownloadSummary();
   }
   void showAccount() {
-    Get.snackbar('Account', 'Informasi user dan role akan ditampilkan di sini.');
+    SfaFeedbackDialog.show(type: SfaFeedbackType.info, title: 'Account', message: 'Informasi user dan role akan ditampilkan di sini.');
   }
 
   Future<void> syncData() async {
@@ -41,12 +44,7 @@ class SettingsController extends GetxController {
     await sync.syncNow(force: true);
     final stats = sync.syncStats;
     final unresolved = (stats['conflict'] ?? 0) + (stats['blocked'] ?? 0);
-    Get.snackbar(
-      unresolved > 0 ? 'Sync perlu perhatian' : 'Sync',
-      unresolved > 0
-          ? '$unresolved item conflict/gagal perlu ditinjau.'
-          : 'Sinkronisasi data selesai diproses.',
-    );
+    await SfaFeedbackDialog.show(type: unresolved > 0 ? SfaFeedbackType.warning : SfaFeedbackType.sync, title: unresolved > 0 ? 'Sync perlu perhatian' : 'Sinkronisasi selesai', message: unresolved > 0 ? '$unresolved item conflict/gagal perlu ditinjau.' : 'Sinkronisasi data selesai diproses.');
   }
 
   Future<void> downloadLatestMasterData() async {
@@ -69,17 +67,13 @@ class SettingsController extends GetxController {
       if (Get.isRegistered<OutletController>()) {
         await Get.find<OutletController>().refreshFromCache();
       }
-      Get.snackbar(
-        'Data terbaru siap',
-        '${result.products} produk dan ${result.outlets} outlet diperbarui.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      await SfaFeedbackDialog.show(type: SfaFeedbackType.sync, title: 'Data terbaru siap', message: '${result.products} produk dan ${result.outlets} outlet diperbarui.');
     } on StateError catch (error) {
-      Get.snackbar('Tidak dapat mengunduh', error.message, snackPosition: SnackPosition.BOTTOM);
+      SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Tidak dapat mengunduh', message: error.message);
     } on FormatException catch (error) {
-      Get.snackbar('Data server tidak valid', error.message, snackPosition: SnackPosition.BOTTOM);
+      SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Data server tidak valid', message: error.message);
     } catch (_) {
-      Get.snackbar('Unduhan gagal', 'Data lokal sebelumnya tetap digunakan. Coba lagi saat koneksi stabil.', snackPosition: SnackPosition.BOTTOM);
+      SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Unduhan gagal', message: 'Data lokal sebelumnya tetap digunakan. Coba lagi saat koneksi stabil.');
     } finally {
       isDownloadingMasterData.value = false;
     }
@@ -107,7 +101,7 @@ class SettingsController extends GetxController {
         onPressed: () async {
           await SyncStorage.clearAll();
           Get.back();
-          Get.snackbar('Data lokal', 'Antrean sinkronisasi berhasil dihapus.');
+          await SfaFeedbackDialog.show(type: SfaFeedbackType.delete, title: 'Data lokal dihapus', message: 'Antrean sinkronisasi berhasil dihapus.');
         },
         child: const Text('Hapus'),
       ),
@@ -116,6 +110,10 @@ class SettingsController extends GetxController {
   }
 
   Future<void> logout() async {
+    await Get.find<PushNotificationService>().stop();
+    if (Get.isRegistered<NotificationController>()) {
+      Get.delete<NotificationController>(force: true);
+    }
     await Get.find<SessionService>().logout();
     Get.offAllNamed('/login');
   }
@@ -151,21 +149,13 @@ class SettingsController extends GetxController {
         await Get.find<VisitController>().loadVisits();
       }
 
-      Get.snackbar(
-        'State dipulihkan',
-        '${result.records} data dipulihkan dari state server terakhir.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      await SfaFeedbackDialog.show(type: SfaFeedbackType.sync, title: 'State dipulihkan', message: '${result.records} data dipulihkan dari state server terakhir.');
     } on StateError catch (error) {
-      Get.snackbar('Tidak dapat memulihkan', error.message, snackPosition: SnackPosition.BOTTOM);
+      SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Tidak dapat memulihkan', message: error.message);
     } on FormatException catch (error) {
-      Get.snackbar('State server tidak valid', error.message, snackPosition: SnackPosition.BOTTOM);
+      SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'State server tidak valid', message: error.message);
     } catch (_) {
-      Get.snackbar(
-        'Pemulihan gagal',
-        'State server belum dapat diambil. Coba lagi saat koneksi stabil.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Pemulihan gagal', message: 'State server belum dapat diambil. Coba lagi saat koneksi stabil.');
     } finally {
       isRestoringServerState.value = false;
     }

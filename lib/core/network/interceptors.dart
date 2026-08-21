@@ -116,7 +116,7 @@ class IdempotencyInterceptor extends Interceptor {
     RequestInterceptorHandler handler,
   ) async {
     // Add Idempotency-Key for POST, PUT, PATCH requests
-    if (['POST', 'PUT', 'PATCH'].contains(options.method)) {
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].contains(options.method)) {
       if (!options.headers.containsKey('Idempotency-Key')) {
         // Idempotency key should be set by the caller, but add empty placeholder if missing
         options.headers['Idempotency-Key'] = '';

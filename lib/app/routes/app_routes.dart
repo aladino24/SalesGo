@@ -11,4 +11,6 @@ class AppRoutes {
   static const notifications = '/notifications';
   static const monitoring = '/monitoring';
   static const reports = '/reports';
+  static const meetings = '/meetings';
+  static const meetingDetail = '/meetings/:id';
 }

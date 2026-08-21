@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "371233561964",
+    "project_id": "salesgo-dca78",
+    "storage_bucket": "salesgo-dca78.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:371233561964:android:0d9f53c68bd7f6c9bf6749",
+        "android_client_info": {
+          "package_name": "com.example.salesgo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB40eYqAy9wiOZfAJQt8NAo4SJeZzPJt_c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

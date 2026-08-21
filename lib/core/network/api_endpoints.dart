@@ -6,9 +6,11 @@ abstract final class ApiEndpoints {
   static const products = '/master/products';
   static const outlets = '/master/outlets';
   static const visits = '/visits';
-  static const visitActivities = '/visit-activities';
+  static const visitActivities = '/outlets';
   static const notifications = '/notifications';
+  static const notificationDevices = '/notifications/devices';
   static const meetings = '/meetings';
+  static const meetingJoinByCode = '/meetings/join-by-code';
   static const salesOrders = '/sales-orders';
   static const checkIns = '/visits/check-in';
   static const checkOuts = '/visits/check-out';
@@ -16,7 +18,9 @@ abstract final class ApiEndpoints {
   static const returns = '/returns';
   static const gifts = '/gifts';
   static const outletNotes = '/outlet-notes';
-  static const receivablePayments = '/receivable-payments';
+  // A payment is posted to /receivables/{invoiceId}/payments. This base is
+  // retained for UI code that resolves the selected invoice first.
+  static const receivablePayments = '/receivables';
   static const deferVisit = '/visits/defer';
   static const cancelVisit = '/visits/cancel';
   static const visitApprovals = '/approvals/visits';
@@ -25,14 +29,11 @@ abstract final class ApiEndpoints {
   static const serverState = '/sync/state';
   static const promotions = '/promotions';
   static const files = '/files';
-  static const monitoringActivities = '/monitoring/sales-activities';
-  static const monitoringVisits = '/monitoring/visits';
-  static const monitoringPerformance = '/monitoring/performance';
+  static const monitoringTeam = '/monitoring/team';
   static const reportsSummary = '/reports/summary';
   static const attachments = '/attachments';
   static const masterSnapshot = '/master/snapshot';
   static const routeEstimate = '/routes/estimate';
   static const journeys = '/journeys';
   static const deliveryNotes = '/delivery-notes';
-  static const deliveryNoteApprovals = '/approvals/delivery-notes';
 }

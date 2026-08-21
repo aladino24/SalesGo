@@ -4,6 +4,7 @@ import '../../core/network/network_info.dart';
 import '../../data/models/important_file_model.dart';
 import '../../data/models/promotion_model.dart';
 import '../../data/repositories/information_repository.dart';
+import '../../app/widgets/sfa_feedback_dialog.dart';
 
 class InformationController extends GetxController {
   InformationController({InformationRepository? repository, NetworkInfo? networkInfo})
@@ -51,13 +52,13 @@ class InformationController extends GetxController {
       final index = files.indexWhere((item) => item.id == cached.id);
       if (index >= 0) files[index] = cached;
       await refreshCacheUsage();
-      Get.snackbar('File siap offline', '${cached.name} tersimpan di perangkat.', snackPosition: SnackPosition.BOTTOM);
+      await SfaFeedbackDialog.show(type: SfaFeedbackType.upload, title: 'File siap offline', message: '${cached.name} tersimpan di perangkat.');
     } on CacheQuotaExceededException {
-      Get.snackbar('Penyimpanan penuh', 'Hapus cache file lain sebelum mengunduh file ini.', snackPosition: SnackPosition.BOTTOM);
+      SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'Penyimpanan penuh', message: 'Hapus cache file lain sebelum mengunduh file ini.');
     } on FormatException catch (error) {
-      Get.snackbar('Unduhan gagal', error.message, snackPosition: SnackPosition.BOTTOM);
+      SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Unduhan gagal', message: error.message);
     } catch (_) {
-      Get.snackbar('Unduhan gagal', 'Periksa koneksi dan coba lagi.', snackPosition: SnackPosition.BOTTOM);
+      SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Unduhan gagal', message: 'Periksa koneksi dan coba lagi.');
     } finally {
       downloadingIds.remove(file.id);
     }
@@ -67,9 +68,9 @@ class InformationController extends GetxController {
     try {
       await _repository.openCachedFile(file);
     } on StateError catch (error) {
-      Get.snackbar('Tidak dapat membuka file', error.message, snackPosition: SnackPosition.BOTTOM);
+      SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Tidak dapat membuka file', message: error.message);
     } catch (_) {
-      Get.snackbar('Tidak dapat membuka file', 'Coba unduh ulang file ini.', snackPosition: SnackPosition.BOTTOM);
+      SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Tidak dapat membuka file', message: 'Coba unduh ulang file ini.');
     }
   }
 
@@ -78,6 +79,6 @@ class InformationController extends GetxController {
     final index = files.indexWhere((item) => item.id == file.id);
     if (index >= 0) files[index] = file.copyWith(cachePath: '');
     await refreshCacheUsage();
-    Get.snackbar('Cache dihapus', '${file.name} tidak lagi tersedia offline.', snackPosition: SnackPosition.BOTTOM);
+    await SfaFeedbackDialog.show(type: SfaFeedbackType.delete, title: 'Cache dihapus', message: '${file.name} tidak lagi tersedia offline.');
   }
 }

@@ -1,24 +1,28 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:salesgo/data/repositories/master_repository.dart';
+import 'package:salesgo/data/datasources/local/master_local_data_source.dart';
+
+import 'support/hive_test_helper.dart';
 
 void main() {
-  group('MasterRepository', () {
-    test('returns product list from local data source when offline', () async {
-      final repository = MasterRepository();
+  setUpAll(HiveTestHelper.initialize);
 
-      final products = await repository.getProducts(isOnline: false);
+  group('MasterLocalDataSource', () {
+    setUp(() => HiveTestHelper.clearBoxes(['master_products', 'master_outlets']));
 
-      expect(products, isNotEmpty);
-      expect(products.first.name, isNotEmpty);
+    test('returns an empty product list when offline cache has not been downloaded', () async {
+      final source = MasterLocalDataSource();
+
+      final products = await source.getProducts();
+
+      expect(products, isEmpty);
     });
 
-    test('returns outlet list from local data source when offline', () async {
-      final repository = MasterRepository();
+    test('returns an empty outlet list when offline cache has not been downloaded', () async {
+      final source = MasterLocalDataSource();
 
-      final outlets = await repository.getOutlets(isOnline: false);
+      final outlets = await source.getOutlets();
 
-      expect(outlets, isNotEmpty);
-      expect(outlets.first.name, isNotEmpty);
+      expect(outlets, isEmpty);
     });
   });
 }

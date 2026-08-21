@@ -19,7 +19,7 @@ class VisitController extends GetxController {
   final RouteEstimateService _routeService;
 
   final RxString status = 'Planned'.obs;
-  final RxInt totalOutlet = 25.obs;
+  final RxInt totalOutlet = 0.obs;
   final RxList<VisitModel> visits = <VisitModel>[].obs;
   final RxBool isLoading = false.obs;
   final Rxn<LocationSnapshot> currentLocation = Rxn<LocationSnapshot>();
@@ -36,6 +36,7 @@ class VisitController extends GetxController {
     try {
       final data = await _repository.getVisits(isOnline: await _networkInfo.isConnected);
       visits.assignAll(data);
+      totalOutlet.value = data.length;
       await loadRouteEstimates();
     } finally {
       isLoading.value = false;
@@ -56,18 +57,4 @@ class VisitController extends GetxController {
   }
 
   void updateStatus(String value) => status.value = value;
-
-  Future<void> addMockVisit() async {
-    final newVisit = VisitModel(
-      id: 'VIS-${DateTime.now().millisecondsSinceEpoch}',
-      outletName: 'Outlet Baru',
-      status: 'On Route',
-      distanceKm: 0.8,
-      salesName: 'Raka',
-      createdAt: DateTime.now(),
-    );
-
-    await _repository.createVisit(newVisit, isOnline: await _networkInfo.isConnected);
-    visits.insert(0, newVisit);
-  }
 }

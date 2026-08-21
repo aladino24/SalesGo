@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:get/get.dart';
 
 import 'app/bindings/initial_binding.dart';
@@ -9,9 +11,16 @@ import 'core/storage/local_storage.dart';
 import 'core/storage/sync_storage.dart';
 import 'core/auth/session_service.dart';
 import 'data/repositories/auth_repository.dart';
+import 'core/notifications/push_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  } catch (_) {
+    // The app remains usable until Firebase project files are installed.
+  }
   await LocalStorage.init();
   await SyncStorage.init();
   final sessionService = SessionService();

@@ -5,10 +5,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_ui.dart';
+import '../../app/widgets/sfa_feedback_dialog.dart';
 import '../../data/models/outlet_model.dart';
 import '../../data/models/visit_model.dart';
 import '../../data/models/outlet_performance_model.dart';
 import '../../data/repositories/outlet_detail_repository.dart';
+import '../../data/repositories/outlet_transaction_repository.dart';
 import '../../data/datasources/local/visit_local_data_source.dart';
 import '../../data/repositories/visit_timeline_repository.dart';
 import '../sales/sales_order_page.dart';
@@ -534,10 +536,7 @@ Future<void> _callOutlet(String phone) async {
     path: phone.replaceAll(RegExp(r'[^0-9+]'), ''),
   );
   if (!await launchUrl(uri)) {
-    Get.snackbar(
-      'Tidak dapat menelepon',
-      'Aplikasi telepon tidak tersedia pada perangkat ini.',
-    );
+    SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Tidak dapat menelepon', message: 'Aplikasi telepon tidak tersedia pada perangkat ini.');
   }
 }
 
@@ -547,15 +546,7 @@ class _OutletHistoryTab extends StatelessWidget {
   final OutletModel outlet;
 
   Future<List<Map<String, dynamic>>> _load() async {
-    final items = <Map<String, dynamic>>[];
-    final transactions = Hive.isBoxOpen('outlet_transactions')
-        ? Hive.box('outlet_transactions')
-        : await Hive.openBox('outlet_transactions');
-    for (final value in transactions.values) {
-      if (value is Map && value['outletId'] == outlet.id) {
-        items.add(Map<String, dynamic>.from(value));
-      }
-    }
+    final items = await OutletTransactionRepository().history(outletId: outlet.id);
 
     final orders = Hive.isBoxOpen('sales_orders')
         ? Hive.box('sales_orders')
