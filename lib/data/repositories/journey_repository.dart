@@ -41,17 +41,29 @@ class JourneyRepository {
     return _sorted(items);
   }
 
-  Future<void> create(JourneyModel item) async {
+  Future<JourneyModel> create(JourneyModel item) async {
     await (await _box).put(item.id, item.toJson());
     const uuid = Uuid();
     if (await _network.isConnected) {
       try {
         final response = await _api.post<dynamic>(ApiEndpoints.journeys, data: item.toJson(), idempotencyKey: uuid.v4());
-        if (response is Map) await (await _box).put(item.id, JourneyModel.fromJson(Map<String, dynamic>.from(response)).toJson());
-        return;
-      } catch (_) {}
+        if (response is Map) {
+          final saved = JourneyModel.fromJson(Map<String, dynamic>.from(response));
+          if (saved.serverId == null || saved.serverId!.isEmpty) {
+            throw const FormatException('Server tidak mengembalikan ID perjalanan.');
+          }
+          await (await _box).put(item.id, saved.toJson());
+          return saved;
+        }
+        throw const FormatException('Respons pembuatan perjalanan tidak valid.');
+      } catch (_) {
+        // Jangan mengubah kegagalan validasi/API menjadi data Planned yang
+        // seolah-olah sudah bisa dimulai. Data hanya diantrikan saat offline.
+        rethrow;
+      }
     }
     await _sync.queueItem(type: 'journey_create', endpoint: ApiEndpoints.journeys, method: 'POST', payload: item.toJson(), uuid: item.id, idempotencyKey: uuid.v4());
+    return item;
   }
 
   Future<void> updateStatus(JourneyModel item, String status, {String? reason}) async {
@@ -73,11 +85,47 @@ class JourneyRepository {
   }
 
   Future<void> start(JourneyModel item) async {
-    final serverId = item.serverId;
+    final resolved = await _resolveServerJourney(item);
+    final serverId = resolved.serverId;
     if (serverId == null || serverId.isEmpty) throw StateError('Perjalanan belum tersinkron ke server.');
     const uuid = Uuid();
     final response = await _api.post<dynamic>('${ApiEndpoints.journeys}/$serverId/start', data: const <String, dynamic>{}, idempotencyKey: uuid.v4());
     if (response is Map) await (await _box).put(item.id, JourneyModel.fromJson(Map<String, dynamic>.from(response)).toJson());
+  }
+
+  Future<JourneyModel> _resolveServerJourney(JourneyModel item) async {
+    if (item.serverId != null && item.serverId!.isNotEmpty) return item;
+    if (!await _network.isConnected) return item;
+
+    final response = await _api.get<dynamic>(ApiEndpoints.journeys);
+    if (response is List) {
+      for (final value in response.whereType<Map>()) {
+        final remote = JourneyModel.fromJson(Map<String, dynamic>.from(value));
+        if (remote.id == item.id && remote.serverId != null && remote.serverId!.isNotEmpty) {
+          await (await _box).put(item.id, remote.toJson());
+          return remote;
+        }
+      }
+    }
+
+    // Journey dari aplikasi versi sebelumnya mungkin hanya ada di Hive karena
+    // respons create gagal/tidak tersimpan. Kirim ulang dengan client ID yang
+    // sama; backend memakai firstOrCreate sehingga tidak menggandakan data.
+    const uuid = Uuid();
+    final created = await _api.post<dynamic>(
+      ApiEndpoints.journeys,
+      data: item.toJson(),
+      idempotencyKey: uuid.v4(),
+    );
+    if (created is! Map) {
+      throw const FormatException('Respons sinkronisasi perjalanan tidak valid.');
+    }
+    final remote = JourneyModel.fromJson(Map<String, dynamic>.from(created));
+    if (remote.serverId == null || remote.serverId!.isEmpty) {
+      throw const FormatException('Server tidak mengembalikan ID perjalanan.');
+    }
+    await (await _box).put(item.id, remote.toJson());
+    return remote;
   }
 
   List<JourneyModel> _sorted(List<JourneyModel> items) => items..sort((a, b) => b.createdAt.compareTo(a.createdAt));

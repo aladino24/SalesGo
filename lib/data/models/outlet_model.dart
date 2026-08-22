@@ -36,8 +36,10 @@ class OutletModel {
       type: json['type'] as String,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
-      salesResponsible: json['salesResponsible'] as String,
-      status: json['status'] as String,
+      // Outlet yang belum ditugaskan ke sales memang dikirim server sebagai
+      // null. Master snapshot tetap harus dapat diunduh dalam kondisi itu.
+      salesResponsible: json['salesResponsible']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'Active',
       ownerName: json['ownerName']?.toString(),
       contactName: json['contactName']?.toString(),
       phone: json['phone']?.toString(),
