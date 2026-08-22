@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_ui.dart';
+import '../../app/routes/app_routes.dart';
 import '../../app/widgets/sfa_feedback_dialog.dart';
 import '../../data/models/outlet_model.dart';
 import '../../data/models/visit_model.dart';
@@ -18,6 +19,7 @@ import '../visit/check_in_page.dart';
 import '../visit/check_out_page.dart';
 import '../visit/visit_action_page.dart';
 import '../visit/visit_controller.dart';
+import '../home/home_controller.dart';
 import 'outlet_transaction_page.dart';
 
 enum _DetailMenuAction {
@@ -182,7 +184,13 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
                             if (Get.isRegistered<VisitController>()) {
                               Get.find<VisitController>().setActiveVisit(visit);
                             }
-                            setState(() => _activeVisitId = visit.id);
+                            Get.offAllNamed(AppRoutes.home);
+                            await Future<void>.delayed(
+                              const Duration(milliseconds: 120),
+                            );
+                            if (Get.isRegistered<HomeController>()) {
+                              Get.find<HomeController>().changeTab(1);
+                            }
                           }
                         }
                       : null,

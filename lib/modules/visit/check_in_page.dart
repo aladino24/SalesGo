@@ -106,7 +106,7 @@ class _CheckInPageState extends State<CheckInPage> {
       await _requestOutOfRadiusOverride();
       if (_overrideReason == null) return;
     }
-    if (_photoPath == null) {
+    if (widget.isRequired && _photoPath == null) {
       SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'Foto diperlukan', message: 'Ambil foto bukti kunjungan terlebih dahulu.');
       return;
     }
@@ -139,8 +139,8 @@ class _CheckInPageState extends State<CheckInPage> {
           'visitId': visit.id,
           'outletId': widget.outlet.id,
           'notes': _notesController.text.trim(),
-          'photoPath': _photoPath,
-          'attachmentIdempotencyKey': uuid.v4(),
+          if (_photoPath != null) 'photoPath': _photoPath,
+          if (_photoPath != null) 'attachmentIdempotencyKey': uuid.v4(),
           'location': location.toJson(),
           'distanceMeters': _distanceMeters,
           'isRequired': widget.isRequired,
@@ -153,8 +153,8 @@ class _CheckInPageState extends State<CheckInPage> {
       await VisitTimelineRepository().record(outletId: widget.outlet.id, visitId: visit.id, activity: 'check_in', description: isOverride ? 'Check-in wajib di luar radius menunggu approval' : (!_isWithinRadius ? 'Check-in kunjungan tidak wajib di luar radius' : 'Check-in outlet'), location: location.toJson());
 
       if (!mounted) return;
-      Get.back(result: visit);
       await SfaFeedbackDialog.show(type: isOverride ? SfaFeedbackType.approval : SfaFeedbackType.success, title: isOverride ? 'Override diajukan' : 'Check-in berhasil', message: isOverride ? 'Check-in wajib di luar radius menunggu approval.' : (!_isWithinRadius ? 'Kunjungan tidak wajib di luar radius berhasil dimulai.' : 'Kunjungan outlet dimulai dan akan disinkronkan saat online.'));
+      if (mounted) Get.back(result: visit);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -210,10 +210,12 @@ class _CheckInPageState extends State<CheckInPage> {
             const SizedBox(height: 9),
             _buildLocationStatus(),
             const SizedBox(height: 22),
-            const SfaSectionTitle(title: 'Foto Outlet', actionLabel: 'Wajib'),
-            const SizedBox(height: 8),
-            _buildPhotoCapture(),
-            const SizedBox(height: 20),
+            if (widget.isRequired) ...[
+              const SfaSectionTitle(title: 'Foto Outlet', actionLabel: 'Wajib'),
+              const SizedBox(height: 8),
+              _buildPhotoCapture(),
+              const SizedBox(height: 20),
+            ],
             const Text('Catatan (Opsional)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             TextField(
