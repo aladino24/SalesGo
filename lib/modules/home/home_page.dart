@@ -409,6 +409,15 @@ class _JourneyCard extends StatelessWidget {
                   backgroundColor: AppColors.primarySoft,
                 ),
               ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => Get.toNamed(AppRoutes.journey),
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text('Mulai Perjalanan'),
+                ),
+              ),
             ],
           ),
         ),

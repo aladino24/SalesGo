@@ -24,6 +24,7 @@ class VisitController extends GetxController {
   final RxBool isLoading = false.obs;
   final Rxn<LocationSnapshot> currentLocation = Rxn<LocationSnapshot>();
   final RxMap<String, RouteEstimate> routeEstimates = <String, RouteEstimate>{}.obs;
+  final requiredOnly = true.obs;
 
   @override
   void onInit() {

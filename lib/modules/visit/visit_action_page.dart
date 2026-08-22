@@ -31,9 +31,11 @@ class VisitActionPage extends StatefulWidget {
     super.key,
     required this.outlet,
     required this.action,
+    required this.visitId,
   });
   final OutletModel outlet;
   final VisitActionType action;
+  final String visitId;
   @override
   State<VisitActionPage> createState() => _VisitActionPageState();
 }
@@ -71,6 +73,7 @@ class _VisitActionPageState extends State<VisitActionPage> {
       type: widget.action.type,
       endpoint: widget.action.endpoint,
       outletId: widget.outlet.id,
+      visitId: widget.visitId,
       reason: _reason.text.trim(),
       followUpAt: _followUp?.toIso8601String(),
     );
