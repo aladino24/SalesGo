@@ -56,6 +56,8 @@ class ApprovalController extends GetxController {
         reason: approvals[index].reason,
         status: approved ? 'Approved' : 'Rejected',
         createdAt: approvals[index].createdAt,
+        requestedByRole: approvals[index].requestedByRole,
+        outlet: approvals[index].outlet,
       );
       approvals[index] = updated;
       await _repository.decide(

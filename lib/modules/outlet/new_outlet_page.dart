@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:latlong2/latlong.dart';
@@ -5,7 +7,9 @@ import 'package:latlong2/latlong.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_open_street_map.dart';
 import '../../core/location/location_service.dart';
+import '../../core/media/image_capture_service.dart';
 import '../../core/network/api_client.dart';
+import '../../core/sync/attachment_upload_service.dart';
 
 class NewOutletPage extends StatefulWidget {
   const NewOutletPage({super.key});
@@ -23,11 +27,13 @@ class _NewOutletPageState extends State<NewOutletPage> {
   final _phone = TextEditingController();
   final _latitude = TextEditingController();
   final _longitude = TextEditingController();
+  final _imageCapture = ImageCaptureService();
   int _step = 0;
   String _type = 'Grosir';
   LocationSnapshot? _location;
   bool _saving = false;
   String? _submittedCode;
+  String? _photoPath;
 
   @override
   void dispose() {
@@ -54,6 +60,11 @@ class _NewOutletPageState extends State<NewOutletPage> {
     }
   }
 
+  Future<void> _capturePhoto() async {
+    final photo = await _imageCapture.captureOutletPhoto();
+    if (photo != null && mounted) setState(() => _photoPath = photo.path);
+  }
+
   Future<void> _applyCoordinates() async {
     final lat = double.tryParse(_latitude.text.trim().replaceAll(',', '.'));
     final lng = double.tryParse(_longitude.text.trim().replaceAll(',', '.'));
@@ -66,6 +77,10 @@ class _NewOutletPageState extends State<NewOutletPage> {
 
   Future<void> _next() async {
     if (_step == 0 && !(_form.currentState?.validate() ?? false)) return;
+    if (_step == 0 && _photoPath == null) {
+      await _message('Foto toko wajib', 'Ambil foto tampak depan outlet untuk melanjutkan pengajuan.', Icons.camera_alt_outlined, AppColors.warning);
+      return;
+    }
     if (_step == 1 && _location == null) {
       await _message('Titik lokasi wajib', 'Gunakan lokasi saya, masukkan koordinat, atau ketuk peta untuk membuat marker outlet.', Icons.location_off_rounded, AppColors.warning);
       return;
@@ -78,10 +93,12 @@ class _NewOutletPageState extends State<NewOutletPage> {
     if (_location == null) return;
     setState(() => _saving = true);
     try {
+      final attachment = await AttachmentUploadService().preparePayload({'photoPath': _photoPath});
       final response = await Get.find<ApiClient>().post<Map<String, dynamic>>('/outlets', data: {
         'name': _name.text.trim(), 'address': _address.text.trim(), 'type': _type,
         'ownerName': _owner.text.trim(), 'contactName': _contact.text.trim(), 'phone': _phone.text.trim(),
         'latitude': _location!.latitude, 'longitude': _location!.longitude,
+        'photoId': attachment['photoId'],
       });
       if (mounted) setState(() { _submittedCode = response['code']?.toString(); _step = 3; });
     } catch (error) {
@@ -112,7 +129,7 @@ class _NewOutletPageState extends State<NewOutletPage> {
       child: _step == 3 ? _SuccessStep(name: _name.text, code: _submittedCode ?? '-', onDone: () => Get.back()) : ListView(
         key: ValueKey(_step), padding: const EdgeInsets.fromLTRB(16, 8, 16, 28), children: [
           _ProgressHeader(activeStep: _step), const SizedBox(height: 24),
-          if (_step == 0) _InformationStep(formKey: _form, name: _name, address: _address, owner: _owner, contact: _contact, phone: _phone, type: _type, onTypeChanged: (value) => setState(() => _type = value ?? _type)),
+          if (_step == 0) _InformationStep(formKey: _form, name: _name, address: _address, owner: _owner, contact: _contact, phone: _phone, type: _type, photoPath: _photoPath, onCapturePhoto: _capturePhoto, onTypeChanged: (value) => setState(() => _type = value ?? _type)),
           if (_step == 1) _LocationStep(location: _location, latitude: _latitude, longitude: _longitude, onCurrentLocation: _useCurrentLocation, onApplyCoordinates: _applyCoordinates, onMapTap: (point) => _setPoint(point.latitude, point.longitude)),
           if (_step == 2) _ReviewStep(name: _name.text, address: _address.text, owner: _owner.text, contact: _contact.text, phone: _phone.text, type: _type, location: _location!),
           const SizedBox(height: 26), Row(children: [
@@ -143,8 +160,8 @@ class _ProgressHeader extends StatelessWidget {
 }
 
 class _InformationStep extends StatelessWidget {
-  const _InformationStep({required this.formKey, required this.name, required this.address, required this.owner, required this.contact, required this.phone, required this.type, required this.onTypeChanged});
-  final GlobalKey<FormState> formKey; final TextEditingController name, address, owner, contact, phone; final String type; final ValueChanged<String?> onTypeChanged;
+  const _InformationStep({required this.formKey, required this.name, required this.address, required this.owner, required this.contact, required this.phone, required this.type, required this.photoPath, required this.onCapturePhoto, required this.onTypeChanged});
+  final GlobalKey<FormState> formKey; final TextEditingController name, address, owner, contact, phone; final String type; final String? photoPath; final VoidCallback onCapturePhoto; final ValueChanged<String?> onTypeChanged;
   @override
   Widget build(BuildContext context) => Form(key: formKey, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     const Text('Informasi Outlet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)), const SizedBox(height: 4), const Text('Lengkapi data dasar outlet sebelum menentukan lokasi.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)), const SizedBox(height: 18),
@@ -156,6 +173,8 @@ class _InformationStep extends StatelessWidget {
       TextField(controller: contact, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Nama Kontak', prefixIcon: Icon(Icons.badge_outlined))), const SizedBox(height: 14),
       TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'No. Telepon', prefixIcon: Icon(Icons.phone_outlined))), const SizedBox(height: 14),
       TextFormField(controller: address, minLines: 2, maxLines: 3, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(labelText: 'Alamat Lengkap *', prefixIcon: Icon(Icons.location_on_outlined)), validator: (value) => value == null || value.trim().isEmpty ? 'Alamat wajib diisi' : null),
+      const SizedBox(height: 16), const Text('Foto Toko *', style: TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 8),
+      InkWell(onTap: onCapturePhoto, borderRadius: BorderRadius.circular(12), child: Container(height: 146, clipBehavior: Clip.antiAlias, decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)), child: photoPath == null ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [CircleAvatar(backgroundColor: Colors.white, child: Icon(Icons.camera_alt_outlined, color: AppColors.primary)), SizedBox(height: 8), Text('Ambil foto tampak depan toko', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w700))])) : Image.file(File(photoPath!), width: double.infinity, fit: BoxFit.cover))),
     ]),
   ]));
 }
