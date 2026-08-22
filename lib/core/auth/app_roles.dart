@@ -25,5 +25,5 @@ extension AppRoleExtension on AppRole {
   bool get canMonitorTeam => this == AppRole.supervisor || this == AppRole.branchManager;
   bool get canViewBranchReports => this == AppRole.supervisor || this == AppRole.branchManager;
   bool get canManageRoutes => this == AppRole.supervisor || this == AppRole.branchManager;
-  bool get canRequestNewOutlet => this == AppRole.sales || this == AppRole.supervisor;
+  bool get canRequestNewOutlet => this == AppRole.sales || this == AppRole.supervisor || this == AppRole.branchManager;
 }

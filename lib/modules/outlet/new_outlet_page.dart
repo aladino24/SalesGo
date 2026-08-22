@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_open_street_map.dart';
@@ -34,6 +35,7 @@ class _NewOutletPageState extends State<NewOutletPage> {
   bool _saving = false;
   String? _submittedCode;
   String? _photoPath;
+  bool _approvalRequired = true;
 
   @override
   void dispose() {
@@ -93,14 +95,18 @@ class _NewOutletPageState extends State<NewOutletPage> {
     if (_location == null) return;
     setState(() => _saving = true);
     try {
-      final attachment = await AttachmentUploadService().preparePayload({'photoPath': _photoPath});
+      const uuid = Uuid();
+      final attachment = await AttachmentUploadService().preparePayload({
+        'photoPath': _photoPath,
+        'attachmentIdempotencyKey': uuid.v4(),
+      });
       final response = await Get.find<ApiClient>().post<Map<String, dynamic>>('/outlets', data: {
         'name': _name.text.trim(), 'address': _address.text.trim(), 'type': _type,
         'ownerName': _owner.text.trim(), 'contactName': _contact.text.trim(), 'phone': _phone.text.trim(),
         'latitude': _location!.latitude, 'longitude': _location!.longitude,
         'photoId': attachment['photoId'],
-      });
-      if (mounted) setState(() { _submittedCode = response['code']?.toString(); _step = 3; });
+      }, idempotencyKey: uuid.v4());
+      if (mounted) setState(() { _submittedCode = response['code']?.toString(); _approvalRequired = response['approvalRequired'] != false; _step = 3; });
     } catch (error) {
       if (mounted) await _message('Pengajuan gagal', error.toString().replaceFirst('Exception: ', ''), Icons.error_outline_rounded, AppColors.danger);
     } finally {
@@ -126,7 +132,7 @@ class _NewOutletPageState extends State<NewOutletPage> {
     ),
     body: SafeArea(child: AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),
-      child: _step == 3 ? _SuccessStep(name: _name.text, code: _submittedCode ?? '-', onDone: () => Get.back()) : ListView(
+      child: _step == 3 ? _SuccessStep(name: _name.text, code: _submittedCode ?? '-', approvalRequired: _approvalRequired, onDone: () => Get.back()) : ListView(
         key: ValueKey(_step), padding: const EdgeInsets.fromLTRB(16, 8, 16, 28), children: [
           _ProgressHeader(activeStep: _step), const SizedBox(height: 24),
           if (_step == 0) _InformationStep(formKey: _form, name: _name, address: _address, owner: _owner, contact: _contact, phone: _phone, type: _type, photoPath: _photoPath, onCapturePhoto: _capturePhoto, onTypeChanged: (value) => setState(() => _type = value ?? _type)),
@@ -213,15 +219,15 @@ class _ReviewStep extends StatelessWidget {
 }
 
 class _SuccessStep extends StatelessWidget {
-  const _SuccessStep({required this.name, required this.code, required this.onDone});
-  final String name, code; final VoidCallback onDone;
+  const _SuccessStep({required this.name, required this.code, required this.approvalRequired, required this.onDone});
+  final String name, code; final bool approvalRequired; final VoidCallback onDone;
   @override
   Widget build(BuildContext context) => Center(child: Padding(padding: const EdgeInsets.all(28), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-    Container(width: 112, height: 112, decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.success.withValues(alpha: .12)), child: const Icon(Icons.check_rounded, size: 72, color: AppColors.success)), const SizedBox(height: 22), const Text('Pengajuan Berhasil!', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800)), const SizedBox(height: 10), const Text('Outlet baru telah dikirim untuk persetujuan Branch Manager.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, height: 1.45)), const SizedBox(height: 28),
-    _FormCard(children: [Row(children: [const CircleAvatar(backgroundColor: AppColors.primarySoft, child: Icon(Icons.storefront_rounded, color: AppColors.primary)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 3), Text(code, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)), const SizedBox(height: 6), const _StatusPill()]))])]), const SizedBox(height: 28), SizedBox(width: double.infinity, child: FilledButton(onPressed: onDone, child: const Text('Selesai'))),
+    Container(width: 112, height: 112, decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.success.withValues(alpha: .12)), child: const Icon(Icons.check_rounded, size: 72, color: AppColors.success)), const SizedBox(height: 22), Text(approvalRequired ? 'Pengajuan Berhasil!' : 'Outlet Berhasil Ditambahkan!', style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800)), const SizedBox(height: 10), Text(approvalRequired ? 'Outlet baru telah dikirim untuk persetujuan Branch Manager.' : 'Outlet langsung aktif dan siap ditambahkan ke master rute.', textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary, height: 1.45)), const SizedBox(height: 28),
+    _FormCard(children: [Row(children: [const CircleAvatar(backgroundColor: AppColors.primarySoft, child: Icon(Icons.storefront_rounded, color: AppColors.primary)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 3), Text(code, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)), const SizedBox(height: 6), _StatusPill(active: !approvalRequired)]))])]), const SizedBox(height: 28), SizedBox(width: double.infinity, child: FilledButton(onPressed: onDone, child: const Text('Selesai'))),
   ])));
 }
 
-class _StatusPill extends StatelessWidget { const _StatusPill(); @override Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: AppColors.warning.withValues(alpha: .13), borderRadius: BorderRadius.circular(8)), child: const Text('Menunggu Approval', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.warning))); }
+class _StatusPill extends StatelessWidget { const _StatusPill({required this.active}); final bool active; @override Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: (active ? AppColors.success : AppColors.warning).withValues(alpha: .13), borderRadius: BorderRadius.circular(8)), child: Text(active ? 'Outlet Aktif' : 'Menunggu Approval', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: active ? AppColors.success : AppColors.warning))); }
 class _FormCard extends StatelessWidget { const _FormCard({required this.children}); final List<Widget> children; @override Widget build(BuildContext context) => Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children)); }
 class _ReviewRow extends StatelessWidget { const _ReviewRow(this.icon, this.label, this.value); final IconData icon; final String label, value; @override Widget build(BuildContext context) => Padding(padding: const EdgeInsets.symmetric(vertical: 7), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(icon, size: 17, color: AppColors.primary), const SizedBox(width: 10), Expanded(child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))), const SizedBox(width: 12), Flexible(child: Text(value, textAlign: TextAlign.end, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)))])); }
