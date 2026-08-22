@@ -6,6 +6,7 @@ import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_open_street_map.dart';
 import '../../app/widgets/sfa_ui.dart';
 import '../../core/location/location_service.dart';
+import '../../core/location/route_estimate_service.dart';
 import '../../data/models/outlet_model.dart';
 import '../../data/models/visit_model.dart';
 import '../outlet/outlet_detail_page.dart';
@@ -180,13 +181,17 @@ class _RouteMap extends StatelessWidget {
   const _RouteMap({required this.controller});
   final VisitController controller;
   @override
-  Widget build(BuildContext context) => Obx(() => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 2, 16, 24),
-        child: Column(children: [
-          Expanded(child: _MapPlaceholder(visits: _routeVisits(controller.visits), currentLocation: controller.currentLocation.value)),
-          const SizedBox(height: 14), _RouteSummary(visits: _routeVisits(controller.visits)),
-        ]),
-      ));
+  Widget build(BuildContext context) => Obx(() {
+        final visits = controller.recommendedRoute(_routeVisits(controller.visits));
+        final estimates = visits.map((visit) => controller.routeEstimates[visit.id]).whereType<RouteEstimate>().toList();
+        final totalDistance = estimates.fold<double>(0, (total, item) => total + item.distanceMeters);
+        final totalMinutes = estimates.fold<int>(0, (total, item) => total + (item.durationSeconds / 60).ceil());
+        return Padding(padding: const EdgeInsets.fromLTRB(16, 2, 16, 24), child: Column(children: [
+          Expanded(child: _MapPlaceholder(visits: visits, currentLocation: controller.currentLocation.value)),
+          const SizedBox(height: 14),
+          Card(child: ListTile(leading: const CircleAvatar(child: Icon(Icons.alt_route_rounded)), title: const Text('Rute rekomendasi'), subtitle: Text('${visits.length} outlet • ${(totalDistance / 1000).toStringAsFixed(1)} km'), trailing: Text('~$totalMinutes mnt', style: const TextStyle(fontWeight: FontWeight.w800)))),
+        ]));
+      });
 }
 
 class _MapPlaceholder extends StatelessWidget {
