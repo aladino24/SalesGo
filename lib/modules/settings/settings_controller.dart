@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../core/auth/session_service.dart';
 import '../../core/notifications/push_notification_service.dart';
@@ -9,6 +10,7 @@ import '../../core/storage/local_storage.dart';
 import '../../core/sync/sync_manager.dart';
 import '../../core/sync/server_state_restore_service.dart';
 import '../../core/sync/master_data_download_service.dart';
+import '../../data/repositories/information_repository.dart';
 import '../home/home_controller.dart';
 import '../visit/visit_controller.dart';
 import '../product/product_controller.dart';
@@ -24,6 +26,7 @@ class SettingsController extends GetxController {
   final RxString masterDownloadLabel = ''.obs;
   final RxString lastMasterDownloadAt = ''.obs;
   final RxString lastMasterDownloadSummary = ''.obs;
+  final RxBool isClearingLocalData = false.obs;
 
   @override
   void onInit() {
@@ -99,9 +102,8 @@ class SettingsController extends GetxController {
       middleText: 'Semua data lokal akan dihapus dari perangkat.',
       confirm: TextButton(
         onPressed: () async {
-          await SyncStorage.clearAll();
           Get.back();
-          await SfaFeedbackDialog.show(type: SfaFeedbackType.delete, title: 'Data lokal dihapus', message: 'Antrean sinkronisasi berhasil dihapus.');
+          await clearBusinessData();
         },
         child: const Text('Hapus'),
       ),
@@ -116,6 +118,46 @@ class SettingsController extends GetxController {
     }
     await Get.find<SessionService>().logout();
     Get.offAllNamed('/login');
+  }
+
+  Future<void> clearBusinessData() async {
+    if (isClearingLocalData.value) return;
+    isClearingLocalData.value = true;
+    try {
+      final information = InformationRepository();
+      final cachedFiles = await information.getFiles(online: false);
+      for (final file in cachedFiles.where((file) => file.isCached)) {
+        await information.removeCache(file);
+      }
+      const boxes = [
+        'master_products', 'master_outlets', 'visits', 'sales_orders',
+        'outlet_transactions', 'visit_actions', 'visit_timeline', 'journeys',
+        'journey_download_state', 'delivery_notes', 'meetings', 'approvals_cache',
+        'promotions', 'files', 'notifications_cache', 'monitoring_cache',
+        'outlet_performance', 'dashboard_cache', 'sync_queue_box', 'sync_audit_log',
+      ];
+      var deletedRecords = 0;
+      for (final name in boxes) {
+        final box = Hive.isBoxOpen(name) ? Hive.box(name) : await Hive.openBox(name);
+        deletedRecords += box.length;
+        await box.clear();
+      }
+      await LocalStorage.appBox.deleteAll([
+        'last_master_download_at', 'last_master_generated_at', 'last_master_revision',
+        'last_master_products_count', 'last_master_outlets_count',
+        'last_server_state_restore_at', 'last_server_state_generated_at',
+        'has_server_state_snapshot',
+      ]);
+      lastMasterDownloadAt.value = '';
+      lastMasterDownloadSummary.value = '';
+      lastServerStateRestoreAt.value = '';
+      if (Get.isRegistered<VisitController>()) Get.find<VisitController>().visits.clear();
+      if (Get.isRegistered<ProductController>()) Get.find<ProductController>().products.clear();
+      if (Get.isRegistered<OutletController>()) Get.find<OutletController>().outlets.clear();
+      await SfaFeedbackDialog.show(type: SfaFeedbackType.delete, title: 'Data lokal dihapus', message: '$deletedRecords data cache dan antrean sync telah dihapus. Sesi login tetap aman. Gunakan Download Data Terbaru untuk memeriksa pemulihan dari server.');
+    } finally {
+      isClearingLocalData.value = false;
+    }
   }
 
   void confirmRestoreServerState() {
