@@ -29,13 +29,17 @@ class OutletModel {
 
   factory OutletModel.fromJson(Map<String, dynamic> json) {
     return OutletModel(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      code: json['code'] as String,
-      address: json['address'] as String,
-      type: json['type'] as String,
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
+      // API Laravel dapat mengirim primary key sebagai integer, sementara
+      // identitas pada aplikasi/offline queue memakai String. Normalisasi ini
+      // tidak mengubah nilainya (contoh 12 menjadi "12"), hanya membuat
+      // kontrak mobile aman untuk payload JSON yang valid.
+      id: _string(json['id']),
+      name: _string(json['name']),
+      code: _string(json['code']),
+      address: _string(json['address']),
+      type: _string(json['type']),
+      latitude: _double(json['latitude']),
+      longitude: _double(json['longitude']),
       // Outlet yang belum ditugaskan ke sales memang dikirim server sebagai
       // null. Master snapshot tetap harus dapat diunduh dalam kondisi itu.
       salesResponsible: json['salesResponsible']?.toString() ?? '',
@@ -44,6 +48,14 @@ class OutletModel {
       contactName: json['contactName']?.toString(),
       phone: json['phone']?.toString(),
     );
+  }
+
+  static String _string(dynamic value, {String fallback = ''}) =>
+      value?.toString() ?? fallback;
+
+  static double _double(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   Map<String, dynamic> toJson() => {
