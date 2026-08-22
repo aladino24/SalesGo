@@ -368,7 +368,8 @@ class _JourneyCard extends StatelessWidget {
     builder: (context, snapshot) {
       final today = DateTime.now();
       final visits = (snapshot.data ?? []).where((visit) {
-        final date = visit.createdAt.toLocal();
+        if (!visit.isRequired) return false;
+        final date = DateTime.tryParse(visit.plannedFor ?? '')?.toLocal() ?? visit.createdAt.toLocal();
         return date.year == today.year &&
             date.month == today.month &&
             date.day == today.day;

@@ -37,10 +37,12 @@ class OutletDetailPage extends StatefulWidget {
     required this.outlet,
     this.plannedVisitId,
     this.isRequired = true,
+    this.readOnly = false,
   });
   final OutletModel outlet;
   final String? plannedVisitId;
   final bool isRequired;
+  final bool readOnly;
 
   @override
   State<OutletDetailPage> createState() => _OutletDetailPageState();
@@ -66,6 +68,16 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.readOnly) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(outlet.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        ),
+        body: SafeArea(
+          child: _OverviewTab(outlet: outlet),
+        ),
+      );
+    }
     return WillPopScope(
       onWillPop: () async => _activeVisitId == null,
       child: DefaultTabController(

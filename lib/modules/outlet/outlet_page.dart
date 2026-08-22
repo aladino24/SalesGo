@@ -82,7 +82,7 @@ class OutletPage extends GetView<OutletController> {
                     final outlet = items[index];
                     return _OutletCard(
                       outlet: outlet,
-                      onTap: () => Get.to(() => OutletDetailPage(outlet: outlet)),
+                      onTap: () => Get.to(() => OutletDetailPage(outlet: outlet, readOnly: true)),
                       onShowLocation: () => Get.to(() => OutletLocationMapPage(outlet: outlet)),
                     );
                   },
