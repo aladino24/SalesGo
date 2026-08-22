@@ -60,14 +60,17 @@ class JourneyPage extends GetView<JourneyController> {
               leading: const CircleAvatar(child: Icon(Icons.route_rounded)),
               title: Text(item.destination, style: const TextStyle(fontWeight: FontWeight.w800)),
               subtitle: Text('${item.type == 'out_of_town' ? 'Luar kota' : 'Dalam kota'} • ${item.approvalStatus}'),
-              trailing: item.status == 'Planned'
-                  ? FilledButton(
-                      onPressed: item.type == 'out_of_town' && item.approvalStatus != 'Approved' ? null : () => controller.changeStatus(item, 'Active'),
-                      child: const Text('Mulai'),
-                    )
-                  : item.status == 'Active'
-                      ? FilledButton(onPressed: () => controller.changeStatus(item, 'Completed'), child: const Text('Selesai'))
-                      : SfaStatusChip(label: item.status),
+              trailing: SizedBox(
+                width: 82,
+                child: item.status == 'Planned'
+                    ? FilledButton(
+                        onPressed: item.type == 'out_of_town' && item.approvalStatus != 'Approved' ? null : () => controller.changeStatus(item, 'Active'),
+                        child: const Text('Mulai'),
+                      )
+                    : item.status == 'Active'
+                        ? FilledButton(onPressed: () => controller.changeStatus(item, 'Completed'), child: const Text('Selesai'))
+                        : Center(child: SfaStatusChip(label: item.status)),
+              ),
             ));
           },
         ),
