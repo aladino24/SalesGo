@@ -27,10 +27,13 @@ class VisitPage extends GetView<VisitController> {
           child: DefaultTabController(
             length: 3,
             child: Column(children: [
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 child: TabBar(
                   indicatorSize: TabBarIndicatorSize.tab,
+                  onTap: (index) {
+                    if (index == 0) controller.loadVisits();
+                  },
                   tabs: [Tab(text: 'Hari Ini'), Tab(text: 'Minggu Ini'), Tab(text: 'Rute')],
                 ),
               ),
@@ -210,7 +213,12 @@ class _MapPlaceholder extends StatelessWidget {
         route: points,
         markers: [
           SfaMapMarker(point: current, label: '', color: AppColors.success, isCurrentLocation: true),
-          ...routeVisits.asMap().entries.map((entry) => SfaMapMarker(point: LatLng(entry.value.latitude!, entry.value.longitude!), label: '${entry.key + 1}', color: entry.value.status == 'Completed' ? AppColors.success : AppColors.primary)),
+          ...routeVisits.asMap().entries.map((entry) => SfaMapMarker(
+                point: LatLng(entry.value.latitude!, entry.value.longitude!),
+                label: '${entry.key + 1}',
+                color: entry.value.status == 'Completed' ? AppColors.success : AppColors.primary,
+                onTap: () => _showOutletMapInfo(context, entry.value),
+              )),
         ],
       ),
       const Positioned(left: 12, top: 12, child: SfaStatusChip(label: 'Lokasi Anda', color: AppColors.success)),
@@ -220,3 +228,42 @@ class _MapPlaceholder extends StatelessWidget {
 
 OutletModel _outletFor(VisitModel visit) => OutletModel(id: visit.outletId ?? visit.id, name: visit.outletName, code: visit.outletCode ?? '-', address: visit.outletAddress ?? 'Alamat belum tersedia', type: 'Outlet', latitude: visit.latitude ?? 0, longitude: visit.longitude ?? 0, salesResponsible: visit.salesName, status: visit.status);
 void _showRouteMap(BuildContext context) => DefaultTabController.of(context).animateTo(2);
+
+void _showOutletMapInfo(BuildContext context, VisitModel visit) {
+  showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(visit.outletName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 12),
+          _MapInfoRow(Icons.tag_rounded, 'Kode outlet', visit.outletCode ?? '-'),
+          _MapInfoRow(Icons.location_on_outlined, 'Alamat', visit.outletAddress ?? 'Alamat belum tersedia'),
+          _MapInfoRow(Icons.my_location_outlined, 'Koordinat', '${visit.latitude?.toStringAsFixed(6) ?? '-'}, ${visit.longitude?.toStringAsFixed(6) ?? '-'}'),
+        ]),
+      ),
+    ),
+  );
+}
+
+class _MapInfoRow extends StatelessWidget {
+  const _MapInfoRow(this.icon, this.label, this.value);
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, size: 18, color: AppColors.primary),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+            Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          ])),
+        ]),
+      );
+}

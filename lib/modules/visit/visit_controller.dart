@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:get/get.dart';
 
 import '../../core/network/network_info.dart';
@@ -25,6 +27,9 @@ class VisitController extends GetxController {
   final Rxn<LocationSnapshot> currentLocation = Rxn<LocationSnapshot>();
   final RxMap<String, RouteEstimate> routeEstimates = <String, RouteEstimate>{}.obs;
   final requiredOnly = true.obs;
+  final RxBool isStartingJourney = false.obs;
+  final RxDouble journeyStartProgress = 0.0.obs;
+  final RxString journeyStartLabel = ''.obs;
 
   void selectVisitCategory(bool value) => requiredOnly.value = value;
 
@@ -40,14 +45,16 @@ class VisitController extends GetxController {
       final data = await _repository.getVisits(isOnline: await _networkInfo.isConnected);
       visits.assignAll(data);
       totalOutlet.value = data.length;
-      await loadRouteEstimates();
     } finally {
       isLoading.value = false;
     }
+    // GPS dan estimate rute tidak boleh menahan tampilan daftar kunjungan.
+    unawaited(loadRouteEstimates());
   }
 
   Future<void> loadRouteEstimates() async {
     try {
+      routeEstimates.clear();
       final location = await _locationService.currentLocation();
       currentLocation.value = location;
       final routeVisits = visits.where((visit) => visit.latitude != null && visit.longitude != null && visit.status != 'Completed').toList();
@@ -57,6 +64,23 @@ class VisitController extends GetxController {
     } on LocationFailure {
       // The visit list remains usable when the user declines location access.
     }
+  }
+
+  void beginJourneyStart() {
+    isStartingJourney.value = true;
+    journeyStartProgress.value = .12;
+    journeyStartLabel.value = 'Menyiapkan perjalanan...';
+  }
+
+  void updateJourneyStartProgress(double value, String label) {
+    journeyStartProgress.value = value;
+    journeyStartLabel.value = label;
+  }
+
+  void finishJourneyStart() {
+    journeyStartProgress.value = 1;
+    journeyStartLabel.value = 'Rencana kunjungan siap offline.';
+    isStartingJourney.value = false;
   }
 
   List<VisitModel> recommendedRoute(List<VisitModel> source) {

@@ -57,15 +57,39 @@ class JourneyPage extends GetView<JourneyController> {
   }
 
   Future<void> _startJourney(JourneyModel item) async {
+    final visits = Get.isRegistered<VisitController>() ? Get.find<VisitController>() : Get.put(VisitController());
+    visits.beginJourneyStart();
+    Get.dialog(
+      Obx(() => PopScope(
+            canPop: false,
+            child: AlertDialog(
+              title: const Text('Menyiapkan Kunjungan'),
+              content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(visits.journeyStartLabel.value),
+                const SizedBox(height: 16),
+                LinearProgressIndicator(value: visits.journeyStartProgress.value),
+                const SizedBox(height: 8),
+                Text('${(visits.journeyStartProgress.value * 100).round()}%', style: const TextStyle(fontSize: 12)),
+              ]),
+            ),
+          )),
+      barrierDismissible: false,
+    );
     try {
+      visits.updateJourneyStartProgress(.35, 'Membuat rencana kunjungan di server...');
       await controller.start(item);
-      if (Get.isRegistered<VisitController>()) await Get.find<VisitController>().loadVisits();
+      visits.updateJourneyStartProgress(.7, 'Mengunduh outlet wajib dan tidak wajib...');
+      await visits.loadVisits();
+      visits.finishJourneyStart();
+      if (Get.isDialogOpen ?? false) Get.back();
       await Get.dialog(AlertDialog(
         title: const Text('Perjalanan dimulai'),
         content: const Text('Rencana kunjungan telah diunduh dan disimpan untuk digunakan offline.'),
         actions: [FilledButton(onPressed: () => Get.offNamed(AppRoutes.visit), child: const Text('Lihat Kunjungan'))],
       ));
     } catch (error) {
+      visits.finishJourneyStart();
+      if (Get.isDialogOpen ?? false) Get.back();
       await SfaFeedbackDialog.show(
         type: SfaFeedbackType.error,
         title: 'Perjalanan belum dapat dimulai',

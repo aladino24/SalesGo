@@ -5,12 +5,19 @@ import 'package:latlong2/latlong.dart';
 import '../theme/app_colors.dart';
 
 class SfaMapMarker {
-  const SfaMapMarker({required this.point, required this.label, required this.color, this.isCurrentLocation = false});
+  const SfaMapMarker({
+    required this.point,
+    required this.label,
+    required this.color,
+    this.isCurrentLocation = false,
+    this.onTap,
+  });
 
   final LatLng point;
   final String label;
   final Color color;
   final bool isCurrentLocation;
+  final VoidCallback? onTap;
 }
 
 class SfaOpenStreetMap extends StatelessWidget {
@@ -76,11 +83,14 @@ class _MapMarker extends StatelessWidget {
   final SfaMapMarker marker;
 
   @override
-  Widget build(BuildContext context) => Container(
-        alignment: Alignment.center,
-        decoration: BoxDecoration(color: marker.color, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3), boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 5)]),
-        child: marker.isCurrentLocation
-            ? const Icon(Icons.my_location_rounded, color: Colors.white, size: 19)
-            : Text(marker.label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: marker.onTap,
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(color: marker.color, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3), boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 5)]),
+          child: marker.isCurrentLocation
+              ? const Icon(Icons.my_location_rounded, color: Colors.white, size: 19)
+              : Text(marker.label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+        ),
       );
 }
