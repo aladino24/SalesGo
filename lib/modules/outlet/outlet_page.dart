@@ -65,7 +65,7 @@ class OutletPage extends GetView<OutletController> {
             ),
             Expanded(
               child: Obx(() {
-                if (controller.isLoading.value) {
+                if (controller.isLoading.value && controller.outlets.isEmpty) {
                   return const Center(child: CircularProgressIndicator());
                 }
 

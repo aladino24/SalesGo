@@ -38,6 +38,12 @@ class InformationController extends GetxController {
     }
   }
 
+  Future<void> refreshFromCache() async {
+    promotions.assignAll(await _repository.getPromotions(online: false));
+    files.assignAll(await _repository.getFiles(online: false));
+    await refreshCacheUsage();
+  }
+
   Future<void> refreshCacheUsage() async {
     final usage = await _repository.cacheUsage();
     cacheUsageBytes.value = usage.usedBytes;

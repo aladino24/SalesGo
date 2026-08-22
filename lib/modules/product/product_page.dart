@@ -30,7 +30,7 @@ class ProductPage extends GetView<ProductController> {
               const SizedBox(height: 16),
               Expanded(
                 child: Obx(() {
-                  if (controller.isLoading.value) {
+                  if (controller.isLoading.value && controller.products.isEmpty) {
                     return const Center(child: CircularProgressIndicator());
                   }
 

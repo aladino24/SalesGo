@@ -12,6 +12,7 @@ import '../../data/models/visit_model.dart';
 import '../../data/models/outlet_performance_model.dart';
 import '../../data/repositories/outlet_detail_repository.dart';
 import '../../data/repositories/outlet_transaction_repository.dart';
+import '../../data/repositories/master_repository.dart';
 import '../../data/datasources/local/visit_local_data_source.dart';
 import '../../data/repositories/visit_timeline_repository.dart';
 import '../sales/sales_order_page.dart';
@@ -50,12 +51,35 @@ class OutletDetailPage extends StatefulWidget {
 
 class _OutletDetailPageState extends State<OutletDetailPage> {
   String? _activeVisitId;
-  OutletModel get outlet => widget.outlet;
+  late OutletModel outlet;
 
   @override
   void initState() {
     super.initState();
+    // Outlet yang dibuka dari kunjungan hanya membawa ringkasan outlet.
+    // Mulai dengan ringkasan tersebut agar halaman tetap langsung tampil,
+    // lalu lengkapi dari master outlet yang tersimpan di Hive.
+    outlet = widget.outlet;
+    _hydrateOutletFromLocalCache();
     _restoreActiveVisit();
+  }
+
+  Future<void> _hydrateOutletFromLocalCache() async {
+    final cachedOutlets = await MasterRepository().getOutlets(isOnline: false);
+    OutletModel? cachedOutlet;
+
+    for (final candidate in cachedOutlets) {
+      if (candidate.id == widget.outlet.id ||
+          (widget.outlet.code.isNotEmpty &&
+              widget.outlet.code != '-' &&
+              candidate.code == widget.outlet.code)) {
+        cachedOutlet = candidate;
+        break;
+      }
+    }
+
+    if (!mounted || cachedOutlet == null) return;
+    setState(() => outlet = cachedOutlet!);
   }
 
   Future<void> _restoreActiveVisit() async {

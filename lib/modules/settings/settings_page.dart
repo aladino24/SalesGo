@@ -14,9 +14,9 @@ class SettingsPage extends GetView<SettingsController> {
     final session = Get.find<SessionService>();
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Pengaturan',
-          style: TextStyle(fontWeight: FontWeight.w800),
+        title: Text(
+          'settings'.tr,
+          style: const TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
       body: SafeArea(
@@ -44,7 +44,7 @@ class SettingsPage extends GetView<SettingsController> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              session.userName.value.isEmpty ? 'Pengguna' : session.userName.value,
+                              session.userName.value.isEmpty ? 'user'.tr : session.userName.value,
                               style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
@@ -60,9 +60,9 @@ class SettingsPage extends GetView<SettingsController> {
                               ),
                             ),
                             const SizedBox(height: 4),
-                            const Text(
-                              'Kode pengguna tersedia setelah profil dimuat',
-                              style: TextStyle(
+                            Text(
+                              'user_code_hint'.tr,
+                              style: const TextStyle(
                                 fontSize: 11,
                                 color: AppColors.textSecondary,
                               ),
@@ -76,45 +76,46 @@ class SettingsPage extends GetView<SettingsController> {
               ),
             ),
             const SizedBox(height: 22),
-            const _GroupTitle('Akun'),
+            const _GroupTitle('account'),
             _SettingTile(
               icon: Icons.person_outline_rounded,
-              label: 'Profil Saya',
+              label: 'my_profile'.tr,
               onTap: controller.showAccount,
             ),
-            const _SettingTile(
+            _SettingTile(
               icon: Icons.lock_outline_rounded,
-              label: 'Ubah Password',
-            ),
-            const _SettingTile(
-              icon: Icons.security_outlined,
-              label: 'Keamanan',
-            ),
-            const SizedBox(height: 18),
-            const _GroupTitle('Aplikasi'),
-            const _SettingTile(
-              icon: Icons.language_rounded,
-              label: 'Bahasa',
-              value: 'Indonesia',
+              label: 'change_password'.tr,
             ),
             _SettingTile(
+              icon: Icons.security_outlined,
+              label: 'security'.tr,
+            ),
+            const SizedBox(height: 18),
+            const _GroupTitle('application'),
+            Obx(() => _SettingTile(
+                  icon: Icons.language_rounded,
+                  label: 'language'.tr,
+                  value: controller.languageCode.value == 'en' ? 'English' : 'Indonesia',
+                  onTap: () => _showLanguagePicker(context),
+                )),
+            _SettingTile(
               icon: Icons.light_mode_outlined,
-              label: 'Tema',
-              value: 'Terang',
+              label: 'theme'.tr,
+              value: 'light'.tr,
               onTap: controller.changeTheme,
             ),
-            const _SettingTile(
+            _SettingTile(
               icon: Icons.info_outline_rounded,
-              label: 'Versi Aplikasi',
+              label: 'app_version'.tr,
               value: '1.0.0 (100)',
             ),
             _SettingTile(
               icon: Icons.sync_rounded,
-              label: 'Sinkronisasi Data',
+              label: 'data_sync'.tr,
               onTap: () => Get.toNamed('/sync-activity'),
             ),
             const SizedBox(height: 18),
-            const _GroupTitle('Data Offline'),
+            const _GroupTitle('offline_data'),
             Obx(
               () => Card(
                 margin: const EdgeInsets.only(bottom: 8),
@@ -127,13 +128,13 @@ class SettingsPage extends GetView<SettingsController> {
                       leading: const Icon(Icons.cloud_sync_outlined, color: AppColors.primary),
                       title: Text(
                         controller.isDownloadingMasterData.value
-                            ? 'Mengunduh Data Terbaru...'
-                            : 'Download Data Terbaru',
+                            ? 'downloading_latest_data'.tr
+                            : 'download_latest_data'.tr,
                         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                       ),
                       subtitle: Text(
                         controller.lastMasterDownloadAt.value.isEmpty
-                            ? 'Produk dan outlet belum diperbarui dari server.'
+                            ? 'master_not_downloaded'.tr
                             : '${controller.lastMasterDownloadSummary.value.isEmpty ? 'Master data terakhir diunduh dari server.' : controller.lastMasterDownloadSummary.value} • ${controller.lastMasterDownloadAt.value.replaceFirst('T', ' ').substring(0, 16)}',
                         style: const TextStyle(fontSize: 11),
                       ),
@@ -158,40 +159,40 @@ class SettingsPage extends GetView<SettingsController> {
               ),
             ),
             const SizedBox(height: 18),
-            const _GroupTitle('Pencadangan & Pemulihan'),
+            const _GroupTitle('backup_restore'),
             Obx(
               () => _SettingTile(
                 icon: Icons.cloud_download_outlined,
                 label: controller.isRestoringServerState.value
-                    ? 'Memulihkan State Server...'
-                    : 'Pulihkan State dari Server',
+                    ? 'restoring_server_state'.tr
+                    : 'restore_server_state'.tr,
                 value: controller.lastServerStateRestoreAt.value.isEmpty
-                    ? 'Belum pernah'
-                    : 'Terakhir dipulihkan',
+                    ? 'never'.tr
+                    : 'last_restored'.tr,
                 onTap: controller.isRestoringServerState.value
                     ? null
                     : controller.confirmRestoreServerState,
               ),
             ),
             const SizedBox(height: 18),
-            const _GroupTitle('Lainnya'),
-            const _SettingTile(
+            const _GroupTitle('others'),
+            _SettingTile(
               icon: Icons.help_outline_rounded,
-              label: 'Bantuan',
+              label: 'help'.tr,
             ),
-            const _SettingTile(
+            _SettingTile(
               icon: Icons.info_outline_rounded,
-              label: 'Tentang Aplikasi',
+              label: 'about_app'.tr,
             ),
             Obx(() => _SettingTile(
               icon: Icons.delete_outline_rounded,
-              label: controller.isClearingLocalData.value ? 'Menghapus Data Lokal...' : 'Hapus Data Lokal',
+              label: controller.isClearingLocalData.value ? 'deleting_local_data'.tr : 'delete_local_data'.tr,
               color: AppColors.danger,
               onTap: controller.isClearingLocalData.value ? null : controller.deleteAllData,
             )),
             _SettingTile(
               icon: Icons.logout_rounded,
-              label: 'Logout',
+              label: 'logout'.tr,
               color: AppColors.danger,
               onTap: controller.logout,
             ),
@@ -199,6 +200,42 @@ class SettingsPage extends GetView<SettingsController> {
         ),
       ),
     );
+  }
+
+  Future<void> _showLanguagePicker(BuildContext context) async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('language'.tr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text('select_language'.tr, style: const TextStyle(color: AppColors.textSecondary)),
+              const SizedBox(height: 12),
+              Obx(() => RadioListTile<String>(
+                    value: 'id',
+                    groupValue: controller.languageCode.value,
+                    onChanged: (value) => Navigator.of(sheetContext).pop(value),
+                    title: const Text('Indonesia'),
+                  )),
+              Obx(() => RadioListTile<String>(
+                    value: 'en',
+                    groupValue: controller.languageCode.value,
+                    onChanged: (value) => Navigator.of(sheetContext).pop(value),
+                    title: const Text('English'),
+                  )),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (selected == null) return;
+    await controller.changeLanguage(selected);
   }
 }
 
@@ -209,7 +246,7 @@ class _GroupTitle extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
     child: Text(
-      text,
+      text.tr,
       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
     ),
   );

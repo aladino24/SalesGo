@@ -16,5 +16,5 @@ class NotificationController extends GetxController {
   List<AppNotificationModel> get visibleItems => unreadOnly.value ? notifications.where((item) => !item.isRead).toList() : notifications;
   int get unreadCount => notifications.where((item) => !item.isRead).length;
   Future<void> load({bool refresh = true}) async { isLoading.value = true; try { notifications.assignAll(await _repository.getNotifications(refresh: refresh)); } finally { isLoading.value = false; } }
-  Future<void> open(AppNotificationModel item) async { await _repository.markRead(item); final index = notifications.indexWhere((value) => value.id == item.id); if (index >= 0) notifications[index] = item.copyWith(isRead: true); if (item.deepLink != null && item.deepLink!.isNotEmpty) await _deepLinks.handle(item.deepLink); }
+  Future<void> open(AppNotificationModel item) async { await _repository.markRead(item); final index = notifications.indexWhere((value) => value.id == item.id); if (index >= 0) notifications[index] = item.copyWith(isRead: true); if (item.deepLink != null && item.deepLink!.isNotEmpty) await _deepLinks.handle(item.deepLink, arguments: {'notificationTitle': item.title, 'notificationMessage': item.message, 'notificationType': item.type, 'notificationId': item.id}); }
 }

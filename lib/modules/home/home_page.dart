@@ -9,6 +9,7 @@ import '../../app/theme/app_colors.dart';
 import '../../app/routes/app_routes.dart';
 import '../../app/widgets/sfa_ui.dart';
 import '../../core/auth/session_service.dart';
+import '../../core/localization/app_locale.dart';
 import '../../data/models/dashboard_model.dart';
 import '../../data/datasources/local/visit_local_data_source.dart';
 import '../../data/models/visit_model.dart';
@@ -17,6 +18,7 @@ import '../information/information_controller.dart';
 import '../../data/models/important_file_model.dart';
 import '../../data/models/promotion_model.dart';
 import '../visit/visit_page.dart';
+import '../visit/visit_controller.dart';
 import '../notification/notification_controller.dart';
 import 'home_controller.dart';
 
@@ -39,31 +41,31 @@ class HomePage extends GetView<HomeController> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: controller.selectedIndex.value,
         onDestinationSelected: controller.changeTab,
-        destinations: const [
+        destinations: [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home_rounded),
-            label: 'Beranda',
+            label: 'home'.tr,
           ),
           NavigationDestination(
             icon: Icon(Icons.person_pin_circle_outlined),
             selectedIcon: Icon(Icons.person_pin_circle_rounded),
-            label: 'Kunjungan',
+            label: 'visits'.tr,
           ),
           NavigationDestination(
             icon: Icon(Icons.view_agenda_outlined),
             selectedIcon: Icon(Icons.view_agenda_rounded),
-            label: 'Menu',
+            label: 'menu'.tr,
           ),
           NavigationDestination(
             icon: Icon(Icons.article_outlined),
             selectedIcon: Icon(Icons.article_rounded),
-            label: 'Informasi',
+            label: 'information'.tr,
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
             selectedIcon: Icon(Icons.settings_rounded),
-            label: 'Pengaturan',
+            label: 'settings'.tr,
           ),
         ],
       ),
@@ -360,14 +362,13 @@ class _BarChartCard extends StatelessWidget {
   }
 }
 
-class _JourneyCard extends StatelessWidget {
+class _JourneyCard extends GetView<VisitController> {
   const _JourneyCard();
   @override
-  Widget build(BuildContext context) => FutureBuilder<List<VisitModel>>(
-    future: VisitLocalDataSource().getVisits(),
-    builder: (context, snapshot) {
+  Widget build(BuildContext context) => Obx(
+    () {
       final today = DateTime.now();
-      final visits = (snapshot.data ?? []).where((visit) {
+      final visits = controller.visits.where((visit) {
         if (!visit.isRequired) return false;
         final date = DateTime.tryParse(visit.plannedFor ?? '')?.toLocal() ?? visit.createdAt.toLocal();
         return date.year == today.year &&
@@ -449,10 +450,61 @@ class _JourneyValue extends StatelessWidget {
   );
 }
 
-class _ActivityCard extends StatelessWidget {
+class _ActivityCard extends StatefulWidget {
   const _ActivityCard();
+
   @override
-  Widget build(BuildContext context) => FutureBuilder<List<_HomeActivity>>(
+  State<_ActivityCard> createState() => _ActivityCardState();
+}
+
+class _ActivityCardState extends State<_ActivityCard> {
+  late final Future<List<Box>> _boxes;
+
+  @override
+  void initState() {
+    super.initState();
+    _boxes = _openActivityBoxes();
+  }
+
+  Future<List<Box>> _openActivityBoxes() async => [
+        Hive.isBoxOpen('journey_activities')
+            ? Hive.box('journey_activities')
+            : await Hive.openBox('journey_activities'),
+        Hive.isBoxOpen('visits')
+            ? Hive.box('visits')
+            : await Hive.openBox('visits'),
+        Hive.isBoxOpen('sync_audit_log')
+            ? Hive.box('sync_audit_log')
+            : await Hive.openBox('sync_audit_log'),
+      ];
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Box>>(
+    future: _boxes,
+    builder: (context, boxesSnapshot) {
+      if (!boxesSnapshot.hasData) {
+        return const Card(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: LinearProgressIndicator(),
+          ),
+        );
+      }
+      final boxes = boxesSnapshot.data!;
+      return ValueListenableBuilder<Box>(
+        valueListenable: boxes[0].listenable(),
+        builder: (_, __, ___) => ValueListenableBuilder<Box>(
+          valueListenable: boxes[1].listenable(),
+          builder: (_, __, ___) => ValueListenableBuilder<Box>(
+            valueListenable: boxes[2].listenable(),
+            builder: (_, __, ___) => _buildActivities(),
+          ),
+        ),
+      );
+    },
+  );
+
+  Widget _buildActivities() => FutureBuilder<List<_HomeActivity>>(
     future: _loadActivities(),
     builder: (context, snapshot) {
       final activities = (snapshot.data ?? []).take(3).toList();
@@ -518,6 +570,37 @@ Future<List<_HomeActivity>> _loadActivities() async {
       createdAt: visit.createdAt,
       icon: visit.status == 'Completed' ? Icons.check_circle_rounded : Icons.location_on_rounded,
       color: visit.status == 'Completed' ? AppColors.success : AppColors.primary,
+    ));
+  }
+  final auditBox = Hive.isBoxOpen('sync_audit_log')
+      ? Hive.box('sync_audit_log')
+      : await Hive.openBox('sync_audit_log');
+  final latestAudits = <String, Map<String, dynamic>>{};
+  for (final raw in auditBox.values.whereType<Map>()) {
+    final item = Map<String, dynamic>.from(raw);
+    final key = item['syncItemId']?.toString() ?? item['id']?.toString() ?? '';
+    final current = latestAudits[key];
+    final createdAt = DateTime.tryParse(item['createdAt']?.toString() ?? '');
+    final currentAt = DateTime.tryParse(current?['createdAt']?.toString() ?? '');
+    if (current == null ||
+        (createdAt != null && (currentAt == null || createdAt.isAfter(currentAt)))) {
+      latestAudits[key] = item;
+    }
+  }
+  for (final item in latestAudits.values) {
+    final createdAt = DateTime.tryParse(item['createdAt']?.toString() ?? '');
+    if (createdAt == null) continue;
+    final event = item['event']?.toString() ?? '';
+    result.add(_HomeActivity(
+      title: event == 'sync_succeeded' ? 'Sinkronisasi berhasil' : 'Sinkronisasi pending',
+      subtitle: item['message']?.toString() ??
+          item['type']?.toString().replaceAll('_', ' ') ??
+          'Aktivitas antrean server',
+      createdAt: createdAt,
+      icon: event == 'sync_succeeded'
+          ? Icons.cloud_done_rounded
+          : Icons.cloud_upload_outlined,
+      color: event == 'sync_succeeded' ? AppColors.success : AppColors.warning,
     ));
   }
   result.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -850,7 +933,7 @@ class _PromotionList extends StatelessWidget {
                 ),
               ),
               subtitle: Text(
-                '${DateFormat('d MMM y', 'id').format(item.startAt)} - ${DateFormat('d MMM y', 'id').format(item.endAt)}\n${item.description}',
+                '${AppLocale.date('d MMM y').format(item.startAt)} - ${AppLocale.date('d MMM y').format(item.endAt)}\n${item.description}',
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -926,7 +1009,7 @@ class _ImportantFileList extends StatelessWidget {
                       ),
                     ),
                     subtitle: Text(
-                      '${file.type.toUpperCase()} - ${_formatBytes(file.size)} - v${file.version}\nDiperbarui ${DateFormat('d MMM y, HH:mm', 'id').format(file.updatedAt)}',
+                      '${file.type.toUpperCase()} - ${_formatBytes(file.size)} - v${file.version}\nDiperbarui ${AppLocale.date('d MMM y, HH:mm').format(file.updatedAt)}',
                     ),
                     isThreeLine: true,
                     onTap: file.isCached ? () => onOpen(file) : null,

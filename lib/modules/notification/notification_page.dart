@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_ui.dart';
+import '../../core/localization/app_locale.dart';
 import '../../data/models/app_notification_model.dart';
 import 'notification_controller.dart';
 
@@ -111,7 +111,7 @@ class _NotificationCard extends StatelessWidget {
     if (diff.inMinutes < 1) return 'Baru saja';
     if (diff.inMinutes < 60) return '${diff.inMinutes} menit lalu';
     if (diff.inHours < 24 && now.day == local.day) return '${diff.inHours} jam lalu';
-    return DateFormat('d MMM y, HH:mm', 'id').format(local);
+    return AppLocale.date('d MMM y, HH:mm').format(local);
   }
 }
 

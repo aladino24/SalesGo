@@ -27,9 +27,14 @@ class OutletController extends GetxController {
   Future<void> loadOutlets() async {
     isLoading.value = true;
     try {
+      // Cache selalu dipasang lebih dulu. Koneksi Wi-Fi/seluler dapat terlihat
+      // aktif walau API/ngrok tidak dapat dijangkau; daftar master tidak boleh
+      // menjadi kosong selama menunggu timeout jaringan.
+      outlets.assignAll(await _repository.getOutlets(isOnline: false));
       final online = await _networkInfo.isConnected;
-      final data = await _repository.getOutlets(isOnline: online);
-      outlets.assignAll(data);
+      if (online) {
+        outlets.assignAll(await _repository.getOutlets(isOnline: true));
+      }
     } finally {
       isLoading.value = false;
     }

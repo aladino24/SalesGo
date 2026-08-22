@@ -27,9 +27,13 @@ class ProductController extends GetxController {
   Future<void> loadProducts() async {
     isLoading.value = true;
     try {
+      // Tampilkan cache lebih dulu agar Master Produk tetap responsif saat
+      // perangkat tidak memiliki internet atau tunnel backend sedang mati.
+      products.assignAll(await _repository.getProducts(isOnline: false));
       final online = await _networkInfo.isConnected;
-      final data = await _repository.getProducts(isOnline: online);
-      products.assignAll(data);
+      if (online) {
+        products.assignAll(await _repository.getProducts(isOnline: true));
+      }
     } finally {
       isLoading.value = false;
     }

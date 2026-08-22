@@ -58,6 +58,7 @@ class ApprovalController extends GetxController {
         createdAt: approvals[index].createdAt,
         requestedByRole: approvals[index].requestedByRole,
         outlet: approvals[index].outlet,
+        visit: approvals[index].visit,
       );
       approvals[index] = updated;
       await _repository.decide(

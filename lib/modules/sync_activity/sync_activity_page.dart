@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:intl/intl.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_ui.dart';
+import '../../core/localization/app_locale.dart';
 import '../../core/sync/sync_manager.dart';
 
 class SyncActivityPage extends StatelessWidget {
@@ -95,7 +95,7 @@ class SyncActivityPage extends StatelessWidget {
                     trailing: Text(
                       time == null
                           ? '-'
-                          : DateFormat('dd MMM HH:mm', 'id').format(time.toLocal()),
+                          : AppLocale.date('dd MMM HH:mm').format(time.toLocal()),
                       style: const TextStyle(fontSize: 10),
                     ),
                   ),

@@ -15,7 +15,9 @@ import '../home/home_controller.dart';
 import '../visit/visit_controller.dart';
 import '../product/product_controller.dart';
 import '../outlet/outlet_controller.dart';
+import '../information/information_controller.dart';
 import '../../app/widgets/sfa_feedback_dialog.dart';
+import '../../core/localization/app_locale.dart';
 
 class SettingsController extends GetxController {
   final RxBool isDarkMode = false.obs;
@@ -27,16 +29,24 @@ class SettingsController extends GetxController {
   final RxString lastMasterDownloadAt = ''.obs;
   final RxString lastMasterDownloadSummary = ''.obs;
   final RxBool isClearingLocalData = false.obs;
+  final RxString languageCode = 'id'.obs;
 
   @override
   void onInit() {
     super.onInit();
     isDarkMode.value = LocalStorage.appBox.get('dark_mode', defaultValue: false) as bool;
+    languageCode.value = AppLocale.current.languageCode;
     lastServerStateRestoreAt.value =
         LocalStorage.appBox.get('last_server_state_restore_at', defaultValue: '') as String;
     lastMasterDownloadAt.value =
         LocalStorage.appBox.get('last_master_download_at', defaultValue: '') as String;
     _loadMasterDownloadSummary();
+  }
+
+  Future<void> changeLanguage(String code) async {
+    if (code == languageCode.value) return;
+    await AppLocale.update(code);
+    languageCode.value = code;
   }
   void showAccount() {
     SfaFeedbackDialog.show(type: SfaFeedbackType.info, title: 'Account', message: 'Informasi user dan role akan ditampilkan di sini.');
@@ -63,14 +73,17 @@ class SettingsController extends GetxController {
         },
       );
       lastMasterDownloadAt.value = DateTime.now().toIso8601String();
-      lastMasterDownloadSummary.value = '${result.products} produk • ${result.outlets} outlet';
+      lastMasterDownloadSummary.value = '${result.products} produk • ${result.outlets} outlet • ${result.routes} rute • ${result.promotions} promosi • ${result.files} file';
       if (Get.isRegistered<ProductController>()) {
         await Get.find<ProductController>().refreshFromCache();
       }
       if (Get.isRegistered<OutletController>()) {
         await Get.find<OutletController>().refreshFromCache();
       }
-      await SfaFeedbackDialog.show(type: SfaFeedbackType.sync, title: 'Data terbaru siap', message: '${result.products} produk dan ${result.outlets} outlet diperbarui.');
+      if (Get.isRegistered<InformationController>()) {
+        await Get.find<InformationController>().refreshFromCache();
+      }
+      await SfaFeedbackDialog.show(type: SfaFeedbackType.sync, title: 'Data terbaru siap', message: '${result.products} produk, ${result.outlets} outlet, ${result.routes} rute, ${result.promotions} promosi, dan ${result.files} metadata file diperbarui.');
     } on StateError catch (error) {
       SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Tidak dapat mengunduh', message: error.message);
     } on FormatException catch (error) {
@@ -85,8 +98,11 @@ class SettingsController extends GetxController {
   void _loadMasterDownloadSummary() {
     final products = LocalStorage.appBox.get('last_master_products_count');
     final outlets = LocalStorage.appBox.get('last_master_outlets_count');
+    final routes = LocalStorage.appBox.get('last_master_routes_count');
+    final promotions = LocalStorage.appBox.get('last_master_promotions_count');
+    final files = LocalStorage.appBox.get('last_master_files_count');
     if (products is int && outlets is int) {
-      lastMasterDownloadSummary.value = '$products produk • $outlets outlet';
+      lastMasterDownloadSummary.value = '$products produk • $outlets outlet${routes is int ? ' • $routes rute' : ''}${promotions is int ? ' • $promotions promosi' : ''}${files is int ? ' • $files file' : ''}';
     }
   }
 
@@ -139,7 +155,7 @@ class SettingsController extends GetxController {
         'outlet_transactions', 'visit_actions', 'visit_timeline', 'journeys', 'journey_activities',
         'journey_download_state', 'delivery_notes', 'meetings', 'approvals_cache',
         'promotions', 'files', 'notifications_cache', 'monitoring_cache',
-        'outlet_performance', 'dashboard_cache', 'sync_queue_box', 'sync_audit_log',
+        'route_master_cache', 'outlet_performance', 'dashboard_cache', 'sync_queue_box', 'sync_audit_log',
       ];
       var deletedRecords = 0;
       for (final name in boxes) {
@@ -154,7 +170,8 @@ class SettingsController extends GetxController {
       }
       await LocalStorage.appBox.deleteAll([
         'last_master_download_at', 'last_master_generated_at', 'last_master_revision',
-        'last_master_products_count', 'last_master_outlets_count',
+        'last_master_products_count', 'last_master_outlets_count', 'last_master_routes_count',
+        'last_master_promotions_count', 'last_master_files_count',
         'last_server_state_restore_at', 'last_server_state_generated_at',
         'has_server_state_snapshot',
       ]);

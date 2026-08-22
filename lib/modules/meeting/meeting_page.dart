@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_feedback_dialog.dart';
 import '../../app/widgets/sfa_ui.dart';
+import '../../core/localization/app_locale.dart';
 import '../../data/models/meeting_model.dart';
 import 'meeting_controller.dart';
 
@@ -122,7 +122,7 @@ class MeetingPage extends GetView<MeetingController> {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.calendar_today_outlined),
                   title: Text(
-                    DateFormat('EEEE, d MMMM y', 'id_ID').format(selectedDate),
+                    AppLocale.date('EEEE, d MMMM y').format(selectedDate),
                   ),
                   onTap: () async {
                     final date = await showDatePicker(
@@ -297,7 +297,7 @@ class MeetingDetailPage extends GetView<MeetingController> {
                   _info(
                     Icons.calendar_today_outlined,
                     'Waktu',
-                    '${DateFormat('EEE, d MMM yyyy', 'id_ID').format(item.startsAt)} • ${DateFormat.Hm().format(item.startsAt)}–${DateFormat.Hm().format(item.endsAt)}',
+                    '${AppLocale.date('EEE, d MMM yyyy').format(item.startsAt)} • ${AppLocale.date('HH:mm').format(item.startsAt)}–${AppLocale.date('HH:mm').format(item.endsAt)}',
                   ),
                   _info(
                     Icons.groups_outlined,

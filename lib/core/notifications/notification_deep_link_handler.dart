@@ -11,14 +11,20 @@ class NotificationDeepLinkHandler {
     AppRoutes.notifications,
   };
 
-  Future<bool> handle(String? value) async {
+  Future<bool> handle(
+    String? value, {
+    Map<String, dynamic>? arguments,
+  }) async {
     if (value == null || value.trim().isEmpty) return false;
     final uri = Uri.tryParse(value.trim());
     if (uri == null) return false;
     final route = uri.path.isNotEmpty ? uri.path : '/${uri.host}';
     if (!_allowedRoutes.contains(route)) return false;
 
-    await Get.toNamed(route, arguments: uri.queryParameters);
+    await Get.toNamed(route, arguments: {
+      ...uri.queryParameters,
+      ...?arguments,
+    });
     return true;
   }
 }

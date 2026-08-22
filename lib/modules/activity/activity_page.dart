@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:intl/intl.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_ui.dart';
 import '../../core/sync/sync_manager.dart';
+import '../../core/localization/app_locale.dart';
 import '../../data/datasources/local/visit_local_data_source.dart';
 
 class ActivityPage extends StatefulWidget {
@@ -42,6 +42,18 @@ class _ActivityPageState extends State<ActivityPage> {
 
   Future<List<_ActivityItem>> _load() async {
     final results = <_ActivityItem>[];
+    final queueBox = Hive.isBoxOpen('sync_queue_box')
+        ? Hive.box('sync_queue_box')
+        : await Hive.openBox('sync_queue_box');
+    final visitSyncStatus = <String, String>{};
+    for (final raw in queueBox.values.whereType<Map>()) {
+      final item = Map<String, dynamic>.from(raw);
+      final payload = item['payload'];
+      if (payload is! Map) continue;
+      final visitId = payload['visitId']?.toString();
+      if (visitId == null || visitId.isEmpty) continue;
+      visitSyncStatus[visitId] = item['status']?.toString() ?? 'pending';
+    }
     final journeyBox = Hive.isBoxOpen('journey_activities') ? Hive.box('journey_activities') : await Hive.openBox('journey_activities');
     for (final raw in journeyBox.values.whereType<Map>()) {
       final item = Map<String, dynamic>.from(raw);
@@ -49,7 +61,18 @@ class _ActivityPageState extends State<ActivityPage> {
       if (at != null) results.add(_ActivityItem(title: item['event']?.toString() ?? 'Perjalanan', description: item['description']?.toString() ?? 'Perjalanan sales', queuedAt: at, status: 'Terkirim', sentAt: at, icon: Icons.route_rounded));
     }
     for (final visit in await VisitLocalDataSource().getVisits()) {
-      results.add(_ActivityItem(title: 'Kunjungan ${visit.status}', description: visit.outletName, queuedAt: visit.createdAt, status: visit.status == 'In Progress' || visit.status == 'Completed' ? 'Terkirim' : 'Pending', sentAt: visit.status == 'In Progress' || visit.status == 'Completed' ? visit.createdAt : null, icon: Icons.location_on_rounded));
+      final queueStatus = visitSyncStatus[visit.id];
+      final syncState = queueStatus == null && visit.status == 'Planned'
+          ? ('Terjadwal', visit.createdAt)
+          : switch (queueStatus) {
+              'pending' => ('Pending', null),
+              'syncing' => ('Mengirim', null),
+              'failed' => ('Gagal', null),
+              'conflict' => ('Konflik', null),
+              'blocked' => ('Diblokir', null),
+              _ => ('Terkirim', visit.createdAt),
+            };
+      results.add(_ActivityItem(title: 'Kunjungan ${visit.status}', description: visit.outletName, queuedAt: visit.createdAt, status: syncState.$1, sentAt: syncState.$2, icon: Icons.location_on_rounded));
     }
     final auditBox = Hive.isBoxOpen('sync_audit_log') ? Hive.box('sync_audit_log') : await Hive.openBox('sync_audit_log');
     final latestAudits = <String, Map<String, dynamic>>{};
@@ -131,11 +154,15 @@ class _ActivityPageState extends State<ActivityPage> {
             itemBuilder: (context, index) {
               if (index == 0) return OutlinedButton.icon(onPressed: () async { await Get.find<SyncManager>().syncNow(force: true); await _refresh(); }, icon: const Icon(Icons.sync_rounded), label: const Text('Coba kirim semua aktivitas pending'));
               final item = items[index - 1];
-              final color = item.status == 'Terkirim' ? AppColors.success : item.status == 'Retry' ? AppColors.danger : AppColors.warning;
+              final color = switch (item.status) {
+                'Terkirim' => AppColors.success,
+                'Gagal' || 'Retry' || 'Konflik' || 'Diblokir' => AppColors.danger,
+                _ => AppColors.warning,
+              };
               return Card(child: ListTile(
                 leading: CircleAvatar(backgroundColor: color.withValues(alpha: .12), child: Icon(item.icon, color: color)),
                 title: Text(item.title, style: const TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text('${item.description}\nMasuk antrean: ${DateFormat('dd MMM y, HH:mm', 'id').format(item.queuedAt.toLocal())}${item.sentAt == null ? '' : '\nTerkirim: ${DateFormat('dd MMM y, HH:mm', 'id').format(item.sentAt!.toLocal())}'}'),
+                subtitle: Text('${item.description}\nMasuk antrean: ${AppLocale.date('dd MMM y, HH:mm').format(item.queuedAt.toLocal())}${item.sentAt == null ? '' : '\nTerkirim: ${AppLocale.date('dd MMM y, HH:mm').format(item.sentAt!.toLocal())}'}'),
                 isThreeLine: true,
                 trailing: SfaStatusChip(label: item.status, color: color),
               ));
