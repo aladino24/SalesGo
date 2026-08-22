@@ -37,14 +37,15 @@ class DeliveryNoteRepository {
   Future<void> create(DeliveryNoteModel item) async {
     await (await _box).put(item.id, item.toJson());
     const uuid = Uuid();
+    final idempotencyKey = uuid.v4();
     if (await _network.isConnected) {
       try {
-        final response = await _api.post<dynamic>(ApiEndpoints.deliveryNotes, data: item.toJson(), idempotencyKey: uuid.v4());
+        final response = await _api.post<dynamic>(ApiEndpoints.deliveryNotes, data: item.toJson(), idempotencyKey: idempotencyKey);
         if (response is Map) await (await _box).put(item.id, DeliveryNoteModel.fromJson(Map<String, dynamic>.from(response)).toJson());
         return;
       } catch (_) {}
     }
-    await _sync.queueItem(type: 'delivery_note_create', endpoint: ApiEndpoints.deliveryNotes, method: 'POST', payload: item.toJson(), uuid: item.id, idempotencyKey: uuid.v4());
+    await _sync.queueItem(type: 'delivery_note_create', endpoint: ApiEndpoints.deliveryNotes, method: 'POST', payload: item.toJson(), uuid: item.id, idempotencyKey: idempotencyKey);
   }
 
   Future<void> changeStatus(DeliveryNoteModel item, String status) async {
@@ -53,15 +54,17 @@ class DeliveryNoteRepository {
     final updated = item.copyWith(status: status, approvalStatus: status == 'Submitted' ? 'Waiting Approval' : item.approvalStatus);
     await (await _box).put(item.id, updated.toJson());
     const uuid = Uuid();
+    final idempotencyKey = uuid.v4();
     final endpoint = '${ApiEndpoints.deliveryNotes}/${item.id}/$action';
     if (await _network.isConnected) {
       try {
-        final response = await _api.post<dynamic>(endpoint, data: const <String, dynamic>{}, idempotencyKey: uuid.v4());
+        final response = await _api.post<dynamic>(endpoint, data: const <String, dynamic>{}, idempotencyKey: idempotencyKey);
         if (response is Map) await (await _box).put(item.id, DeliveryNoteModel.fromJson(Map<String, dynamic>.from(response)).toJson());
         return;
       } catch (_) {}
     }
-    await _sync.queueItem(type: 'delivery_note_$action', endpoint: endpoint, method: 'POST', payload: const <String, dynamic>{}, uuid: uuid.v4(), idempotencyKey: uuid.v4());
+    final operationId = uuid.v4();
+    await _sync.queueItem(type: 'delivery_note_$action', endpoint: endpoint, method: 'POST', payload: const <String, dynamic>{}, uuid: operationId, idempotencyKey: idempotencyKey);
   }
 
   List<DeliveryNoteModel> _sorted(List<DeliveryNoteModel> items) => items..sort((a, b) => b.createdAt.compareTo(a.createdAt));

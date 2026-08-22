@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_feedback_dialog.dart';
@@ -8,6 +9,7 @@ import '../../core/auth/app_roles.dart';
 import '../../core/auth/session_service.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
+import '../../core/network/network_info.dart';
 import '../../data/models/outlet_model.dart';
 import '../../data/repositories/master_repository.dart';
 
@@ -32,6 +34,7 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
   static const _days = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
   final _api = Get.find<ApiClient>();
   final _master = MasterRepository();
+  final _network = Get.find<NetworkInfo>();
   var _records = <Map<String, dynamic>>[];
   var _sales = <Map<String, dynamic>>[];
   var _loading = true;
@@ -41,6 +44,7 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
   var _query = '';
   var _page = 0;
   static const _pageSize = 25;
+  static const _cacheBoxName = 'route_master_cache';
 
   AppRole? get _role => Get.find<SessionService>().currentRole.value;
 
@@ -59,8 +63,17 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
 
   Future<void> _load() async {
     if (mounted) setState(() => _loading = true);
+    var usedCache = false;
     try {
-      final assignments = await _api.get<List<dynamic>>(ApiEndpoints.routeAssignments);
+      final cache = await _cache;
+      if (!await _network.isConnected) {
+        _restoreCache(cache);
+        usedCache = true;
+        return;
+      }
+      final assignments = await _api
+          .get<List<dynamic>>(ApiEndpoints.routeAssignments)
+          .timeout(const Duration(seconds: 12));
       _records = assignments
           .whereType<Map>()
           .map((item) => Map<String, dynamic>.from(item))
@@ -69,7 +82,9 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
       _page = 0;
       if (_role == AppRole.branchManager) {
         try {
-          final response = await _api.get<List<dynamic>>(ApiEndpoints.routeSales);
+          final response = await _api
+              .get<List<dynamic>>(ApiEndpoints.routeSales)
+              .timeout(const Duration(seconds: 8));
           _sales = response.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList();
         } catch (_) {
           // Kompatibel dengan backend yang belum direstart setelah endpoint
@@ -81,17 +96,47 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
                 result[item['id']?.toString() ?? ''] = item;
                 return result;
               })
-              .values
+          .values
               .toList();
         }
       }
+      await cache.put('records', _records);
+      await cache.put('sales', _sales);
     } catch (error) {
-      if (mounted) {
+      final cache = await _cache;
+      if (cache.containsKey('records')) {
+        _restoreCache(cache);
+        usedCache = true;
+      } else if (mounted) {
         await SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Rute tidak dapat dimuat', message: error.toString());
       }
     } finally {
       if (mounted) setState(() => _loading = false);
+      if (usedCache && mounted) {
+        Future<void>.delayed(const Duration(milliseconds: 250), () {
+          if (mounted) {
+            SfaFeedbackDialog.show(type: SfaFeedbackType.info, title: 'Mode offline', message: 'Menampilkan data master rute terakhir yang tersimpan di perangkat.');
+          }
+        });
+      }
     }
+  }
+
+  Future<Box> get _cache async => Hive.isBoxOpen(_cacheBoxName)
+      ? Hive.box(_cacheBoxName)
+      : Hive.openBox(_cacheBoxName);
+
+  void _restoreCache(Box cache) {
+    final records = cache.get('records');
+    final sales = cache.get('sales');
+    _records = records is List
+        ? records.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList()
+        : <Map<String, dynamic>>[];
+    _sales = sales is List
+        ? sales.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList()
+        : <Map<String, dynamic>>[];
+    _drafts.clear();
+    _page = 0;
   }
 
   Future<void> _add() async {

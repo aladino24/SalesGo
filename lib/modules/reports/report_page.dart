@@ -8,6 +8,18 @@ import 'report_controller.dart';
 
 class ReportPage extends GetView<ReportController> {
   const ReportPage({super.key});
+
+  Future<void> _openCsv(String path) async {
+    final error = await controller.openDownloadedFile(path);
+    if (error == null) return;
+    await SfaFeedbackDialog.show(
+      type: SfaFeedbackType.info,
+      title: 'CSV belum dapat dibuka',
+      message: error,
+      actionLabel: 'Mengerti',
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
@@ -28,7 +40,7 @@ class ReportPage extends GetView<ReportController> {
                   message: 'File disimpan di perangkat. Anda dapat membukanya sekarang atau dari pengelola file.',
                   detail: path,
                   actionLabel: 'Buka CSV',
-                  onAction: () => controller.openDownloadedFile(path),
+                  onAction: () => _openCsv(path),
                 );
               } catch (error) {
                 await SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Unduhan gagal', message: error.toString());

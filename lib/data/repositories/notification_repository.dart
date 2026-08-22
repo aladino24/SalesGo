@@ -41,14 +41,16 @@ class NotificationRepository {
     final box = await _box;
     await box.put(item.id, item.copyWith(isRead: true).toJson());
     final endpoint = '${ApiEndpoints.notifications}/${item.id}/read';
+    const uuid = Uuid();
+    final operationId = uuid.v4();
+    final idempotencyKey = uuid.v4();
     if (await _network.isConnected) {
       try {
-        await _api.post<dynamic>(endpoint, idempotencyKey: const Uuid().v4());
+        await _api.post<dynamic>(endpoint, idempotencyKey: idempotencyKey);
         return;
       } catch (_) {}
     }
-    const uuid = Uuid();
-    await _sync.queueItem(type: 'notification_read', endpoint: endpoint, method: 'POST', payload: const {}, uuid: uuid.v4(), idempotencyKey: uuid.v4());
+    await _sync.queueItem(type: 'notification_read', endpoint: endpoint, method: 'POST', payload: const {}, uuid: operationId, idempotencyKey: idempotencyKey);
   }
 
   Future<Box> get _box => Hive.isBoxOpen(_boxName) ? Future.value(Hive.box(_boxName)) : Hive.openBox(_boxName);

@@ -44,9 +44,10 @@ class JourneyRepository {
   Future<JourneyModel> create(JourneyModel item) async {
     await (await _box).put(item.id, item.toJson());
     const uuid = Uuid();
+    final idempotencyKey = uuid.v4();
     if (await _network.isConnected) {
       try {
-        final response = await _api.post<dynamic>(ApiEndpoints.journeys, data: item.toJson(), idempotencyKey: uuid.v4());
+        final response = await _api.post<dynamic>(ApiEndpoints.journeys, data: item.toJson(), idempotencyKey: idempotencyKey);
         if (response is Map) {
           final saved = JourneyModel.fromJson(Map<String, dynamic>.from(response));
           if (saved.serverId == null || saved.serverId!.isEmpty) {
@@ -57,12 +58,12 @@ class JourneyRepository {
         }
         throw const FormatException('Respons pembuatan perjalanan tidak valid.');
       } catch (_) {
-        // Jangan mengubah kegagalan validasi/API menjadi data Planned yang
-        // seolah-olah sudah bisa dimulai. Data hanya diantrikan saat offline.
-        rethrow;
+        // Respons dapat hilang setelah server menerima request. Simpan operasi
+        // dengan key yang sama agar retry adalah replay idempoten, bukan create
+        // perjalanan baru.
       }
     }
-    await _sync.queueItem(type: 'journey_create', endpoint: ApiEndpoints.journeys, method: 'POST', payload: item.toJson(), uuid: item.id, idempotencyKey: uuid.v4());
+    await _sync.queueItem(type: 'journey_create', endpoint: ApiEndpoints.journeys, method: 'POST', payload: item.toJson(), uuid: item.id, idempotencyKey: idempotencyKey);
     return item;
   }
 
@@ -70,19 +71,21 @@ class JourneyRepository {
     final updated = item.copyWith(status: status);
     await (await _box).put(item.id, updated.toJson());
     const uuid = Uuid();
+    final idempotencyKey = uuid.v4();
     final payload = {'status': status, if (reason != null && reason.isNotEmpty) 'reason': reason};
     final journeyId = item.serverId;
     if (journeyId == null || journeyId.isEmpty) throw StateError('Perjalanan belum tersinkron ke server.');
     final endpoint = '${ApiEndpoints.journeys}/$journeyId/status';
     if (await _network.isConnected) {
       try {
-        final response = await _api.patch<dynamic>(endpoint, data: payload, idempotencyKey: uuid.v4());
+        final response = await _api.patch<dynamic>(endpoint, data: payload, idempotencyKey: idempotencyKey);
         if (response is Map) await (await _box).put(item.id, JourneyModel.fromJson(Map<String, dynamic>.from(response)).toJson());
         await _recordActivity(item, status);
         return;
       } catch (_) {}
     }
-    await _sync.queueItem(type: 'journey_status', endpoint: endpoint, method: 'PATCH', payload: payload, uuid: uuid.v4(), idempotencyKey: uuid.v4());
+    final operationId = uuid.v4();
+    await _sync.queueItem(type: 'journey_status', endpoint: endpoint, method: 'PATCH', payload: payload, uuid: operationId, idempotencyKey: idempotencyKey);
     await _recordActivity(item, status);
   }
 

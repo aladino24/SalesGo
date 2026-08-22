@@ -55,6 +55,71 @@ class ApprovalPage extends GetView<ApprovalController> {
     }
   }
 
+  void _openPhotoOverlay({
+    required String photoUrl,
+    required String token,
+    required String outletName,
+  }) {
+    Get.dialog(
+      Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Center(
+                child: InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 4,
+                  child: Image.network(
+                    photoUrl,
+                    fit: BoxFit.contain,
+                    headers: {'Authorization': 'Bearer $token'},
+                    loadingBuilder: (context, child, progress) => progress == null
+                        ? child
+                        : const Center(
+                            child: CircularProgressIndicator(color: Colors.white),
+                          ),
+                    errorBuilder: (_, __, ___) => const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.broken_image_outlined, color: Colors.white, size: 48),
+                        SizedBox(height: 12),
+                        Text('Foto toko tidak dapat dimuat', style: TextStyle(color: Colors.white)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                left: 8,
+                child: IconButton.filled(
+                  onPressed: Get.back,
+                  icon: const Icon(Icons.close),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.black54,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 18,
+                child: Text(
+                  outletName,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      barrierColor: Colors.black87,
+    );
+  }
+
   void _openDetail(ApprovalModel item) {
     final outlet = item.outlet;
     if (outlet == null) return;
@@ -75,7 +140,34 @@ class ApprovalPage extends GetView<ApprovalController> {
           const SizedBox(height: 16), Text(outlet['name']?.toString() ?? 'Outlet', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
           const SizedBox(height: 4), Text(outlet['code']?.toString() ?? '-', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(height: 16),
-          if (photoUrl != null && photoUrl.isNotEmpty) ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.network(photoUrl, height: 190, width: double.infinity, fit: BoxFit.cover, headers: {'Authorization': 'Bearer $token'}, errorBuilder: (_, __, ___) => _PhotoPlaceholder())),
+          if (photoUrl != null && photoUrl.isNotEmpty) InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => _openPhotoOverlay(
+              photoUrl: photoUrl,
+              token: token,
+              outletName: outlet['name']?.toString() ?? 'Foto outlet',
+            ),
+            child: Stack(
+              children: [
+                ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.network(photoUrl, height: 190, width: double.infinity, fit: BoxFit.cover, headers: {'Authorization': 'Bearer $token'}, errorBuilder: (_, __, ___) => _PhotoPlaceholder())),
+                const Positioned(
+                  right: 10,
+                  bottom: 10,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.all(Radius.circular(12))),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.zoom_in_rounded, size: 16, color: Colors.white),
+                        SizedBox(width: 4),
+                        Text('Lihat foto', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                      ]),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           if (photoUrl == null || photoUrl.isEmpty) const _PhotoPlaceholder(),
           const SizedBox(height: 18), const Text('Ringkasan pengajuan', style: TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 8),
           _DetailRow('Diajukan oleh', '${item.requestedBy}${item.requestedByRole == null ? '' : ' • ${item.requestedByRole}'}'),

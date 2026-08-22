@@ -16,7 +16,38 @@ class SyncStorage {
 
   /// Add a new sync item to the queue
   static Future<void> addItem(SyncItem item) async {
+    // Retry harus mengirim operasi yang sama dengan idempotency key yang sama.
+    // Bila tombol sempat ditekan ulang ketika operasi lama masih mengantre,
+    // tahan item kedua agar server tidak menerima transaksi ganda.
+    if (_findQueuedDuplicate(item) != null) return;
     await box.put(item.id, item.toJson());
+  }
+
+  static SyncItem? _findQueuedDuplicate(SyncItem candidate) {
+    final candidateKey = _businessKey(candidate);
+    for (final rawKey in box.keys) {
+      if (rawKey == _lastSyncKey) continue;
+      final raw = box.get(rawKey);
+      if (raw is! Map) continue;
+      final existing = SyncItem.fromJson(Map<String, dynamic>.from(raw));
+      final stillRelevant = {'pending', 'syncing', 'failed'}.contains(existing.status);
+      if (!stillRelevant) continue;
+      if (existing.idempotencyKey == candidate.idempotencyKey ||
+          _businessKey(existing) == candidateKey) {
+        return existing;
+      }
+    }
+    return null;
+  }
+
+  static String _businessKey(SyncItem item) {
+    final payload = item.payload;
+    final entityId = payload['id'] ??
+        payload['visitId'] ??
+        payload['orderId'] ??
+        payload['outletTransactionId'] ??
+        item.uuid;
+    return '${item.type}|${item.method.toUpperCase()}|${item.endpoint}|$entityId';
   }
 
   /// Get all pending items (status = pending or failed)

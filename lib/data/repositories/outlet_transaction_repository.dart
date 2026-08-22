@@ -21,16 +21,17 @@ class OutletTransactionRepository {
     final box = await _box;
     const uuid = Uuid();
     final id = uuid.v4();
+    final idempotencyKey = uuid.v4();
     final record = {'id': id, 'type': type, 'outletId': outletId, 'status': 'pending_sync', 'createdAt': DateTime.now().toIso8601String(), ...payload};
     await box.put(id, record);
     if (await _network.isConnected) {
       try {
-        final response = await _api.post<dynamic>(endpoint, data: record, idempotencyKey: uuid.v4());
+        final response = await _api.post<dynamic>(endpoint, data: record, idempotencyKey: idempotencyKey);
         if (response is Map) await box.put(id, {...Map<String, dynamic>.from(response), 'syncedAt': DateTime.now().toIso8601String()});
         return;
       } catch (_) {}
     }
-    await _sync.queueItem(type: type, endpoint: endpoint, method: 'POST', payload: record, uuid: id, idempotencyKey: uuid.v4());
+    await _sync.queueItem(type: type, endpoint: endpoint, method: 'POST', payload: record, uuid: id, idempotencyKey: idempotencyKey);
   }
 
   Future<List<Map<String, dynamic>>> history({required String outletId, String? type}) async {

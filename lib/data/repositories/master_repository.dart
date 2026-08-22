@@ -18,7 +18,9 @@ class MasterRepository {
       try {
         final products = await _remoteDataSource.getProducts();
         await _localDataSource.saveProducts(products);
-        return products;
+        // Kembalikan hasil yang sudah dinormalisasi dari cache, bukan payload
+        // mentah, agar daftar yang tampil langsung bebas SKU duplikat.
+        return _localDataSource.getProducts();
       } catch (_) {
         return _localDataSource.getProducts();
       }
@@ -31,7 +33,9 @@ class MasterRepository {
       try {
         final outlets = await _remoteDataSource.getOutlets();
         await _localDataSource.saveOutlets(outlets);
-        return outlets;
+        // Kode outlet adalah identitas bisnis pada perangkat; hasil online dan
+        // offline harus melalui sumber lokal yang sama agar tidak menumpuk.
+        return _localDataSource.getOutlets();
       } catch (_) {
         return _localDataSource.getOutlets();
       }

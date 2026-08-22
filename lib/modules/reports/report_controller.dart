@@ -75,7 +75,25 @@ class ReportController extends GetxController {
     return file.path;
   }
 
-  Future<void> openDownloadedFile(String path) async {
-    await OpenFilex.open(path);
+  Future<String?> openDownloadedFile(String path) async {
+    final file = File(path);
+    if (!await file.exists()) {
+      return 'File CSV tidak ditemukan lagi di perangkat. Unduh laporan kembali.';
+    }
+
+    final result = await OpenFilex.open(path, type: 'text/csv');
+    if (result.type == ResultType.done) return null;
+
+    return switch (result.type) {
+      ResultType.noAppToOpen =>
+        'Tidak ada aplikasi untuk membuka CSV. Pasang Google Sheets, Microsoft Excel, atau aplikasi spreadsheet lain.',
+      ResultType.permissionDenied =>
+        'Izin untuk membuka file ditolak oleh perangkat.',
+      ResultType.fileNotFound =>
+        'File CSV tidak ditemukan lagi di perangkat. Unduh laporan kembali.',
+      _ => result.message.isEmpty
+          ? 'CSV belum dapat dibuka. Coba lagi atau buka dari pengelola file.'
+          : result.message,
+    };
   }
 }

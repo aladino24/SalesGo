@@ -41,7 +41,11 @@ class VisitLocalDataSource {
     final box = await _box;
     final unique = <String, VisitModel>{};
     for (final visit in visits) {
-      final key = '${visit.outletId ?? visit.outletName}|${visit.plannedFor ?? ''}';
+      final planned = DateTime.tryParse(visit.plannedFor ?? '')?.toLocal();
+      final dateKey = planned == null
+          ? (visit.plannedFor ?? '')
+          : '${planned.year}-${planned.month}-${planned.day}';
+      final key = '${visit.outletId ?? visit.outletName}|$dateKey|${visit.isRequired}';
       final existing = unique[key];
       if (existing == null || visit.createdAt.isAfter(existing.createdAt)) {
         unique[key] = visit;

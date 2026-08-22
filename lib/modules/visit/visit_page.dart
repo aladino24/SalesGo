@@ -256,7 +256,11 @@ class _RouteMap extends StatelessWidget {
   final VisitController controller;
   @override
   Widget build(BuildContext context) => Obx(() {
-        final visits = controller.recommendedRoute(_routeVisits(controller.visits));
+        // Peta mengikuti pilihan Wajib/Tidak Wajib pada tab Hari Ini.
+        final selectedVisits = _routeVisits(controller.visits)
+            .where((visit) => visit.isRequired == controller.requiredOnly.value)
+            .toList();
+        final visits = controller.recommendedRoute(selectedVisits);
         final estimates = visits.map((visit) => controller.routeEstimates[visit.id]).whereType<RouteEstimate>().toList();
         final totalDistance = estimates.fold<double>(0, (total, item) => total + item.distanceMeters);
         final totalMinutes = estimates.fold<int>(0, (total, item) => total + (item.durationSeconds / 60).ceil());

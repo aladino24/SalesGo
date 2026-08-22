@@ -74,6 +74,8 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
           title: Text(outlet.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
         ),
         body: SafeArea(
+          // Detail dari Data Master bersifat read-only. Telepon tetap tersedia
+          // karena tidak mengubah lifecycle kunjungan maupun data outlet.
           child: _OverviewTab(outlet: outlet),
         ),
       );
@@ -307,8 +309,9 @@ class _VisitBanner extends StatelessWidget {
 }
 
 class _OverviewTab extends StatelessWidget {
-  const _OverviewTab({required this.outlet});
+  const _OverviewTab({required this.outlet, this.showPhoneAction = true});
   final OutletModel outlet;
+  final bool showPhoneAction;
   @override
   Widget build(BuildContext context) => FutureBuilder<OutletPerformanceModel>(
     future: OutletDetailRepository().getPerformance(outlet.id),
@@ -342,7 +345,7 @@ class _OverviewTab extends StatelessWidget {
                   _InfoRow('Alamat', outlet.address),
                   _InfoRow('Tipe Outlet', outlet.type),
                   _InfoRow('Sales', outlet.salesResponsible),
-                  if ((outlet.phone ?? '').isNotEmpty) ...[
+                  if (showPhoneAction && (outlet.phone ?? '').isNotEmpty) ...[
                     const Divider(height: 22),
                     SizedBox(
                       width: double.infinity,

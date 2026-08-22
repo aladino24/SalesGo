@@ -11,24 +11,34 @@ class MasterLocalDataSource {
 
   Future<List<ProductModel>> getProducts() async {
     final box = await _box(_productsBoxName);
-    return box.values.map((value) => ProductModel.fromJson(Map<String, dynamic>.from(value as Map))).toList();
+    return _uniqueProducts(
+      box.values
+          .map((value) => ProductModel.fromJson(Map<String, dynamic>.from(value as Map)))
+          .toList(),
+    );
   }
 
   Future<List<OutletModel>> getOutlets() async {
     final box = await _box(_outletsBoxName);
-    return box.values.map((value) => OutletModel.fromJson(Map<String, dynamic>.from(value as Map))).toList();
+    return _uniqueOutlets(
+      box.values
+          .map((value) => OutletModel.fromJson(Map<String, dynamic>.from(value as Map)))
+          .toList(),
+    );
   }
 
   Future<void> saveProducts(List<ProductModel> products) async {
     final box = await _box(_productsBoxName);
+    final unique = _uniqueProducts(products);
     await box.clear();
-    await box.putAll({for (final product in products) product.id: product.toJson()});
+    await box.putAll({for (final product in unique) product.id: product.toJson()});
   }
 
   Future<void> saveOutlets(List<OutletModel> outlets) async {
     final box = await _box(_outletsBoxName);
+    final unique = _uniqueOutlets(outlets);
     await box.clear();
-    await box.putAll({for (final outlet in outlets) outlet.id: outlet.toJson()});
+    await box.putAll({for (final outlet in unique) outlet.id: outlet.toJson()});
   }
 
   /// Replaces the supported master datasets only after they have been parsed
@@ -42,10 +52,12 @@ class MasterLocalDataSource {
     final previousProducts = Map<dynamic, dynamic>.from(productsBox.toMap());
     final previousOutlets = Map<dynamic, dynamic>.from(outletsBox.toMap());
     try {
+      final uniqueProducts = _uniqueProducts(products);
+      final uniqueOutlets = _uniqueOutlets(outlets);
       await productsBox.clear();
-      await productsBox.putAll({for (final product in products) product.id: product.toJson()});
+      await productsBox.putAll({for (final product in uniqueProducts) product.id: product.toJson()});
       await outletsBox.clear();
-      await outletsBox.putAll({for (final outlet in outlets) outlet.id: outlet.toJson()});
+      await outletsBox.putAll({for (final outlet in uniqueOutlets) outlet.id: outlet.toJson()});
     } catch (_) {
       await productsBox.clear();
       await productsBox.putAll(previousProducts);
@@ -53,5 +65,23 @@ class MasterLocalDataSource {
       await outletsBox.putAll(previousOutlets);
       rethrow;
     }
+  }
+
+  List<ProductModel> _uniqueProducts(List<ProductModel> items) {
+    final unique = <String, ProductModel>{};
+    for (final item in items) {
+      final key = item.sku.trim().isEmpty ? item.id : item.sku.trim().toUpperCase();
+      unique[key] = item;
+    }
+    return unique.values.toList();
+  }
+
+  List<OutletModel> _uniqueOutlets(List<OutletModel> items) {
+    final unique = <String, OutletModel>{};
+    for (final item in items) {
+      final key = item.code.trim().isEmpty ? item.id : item.code.trim().toUpperCase();
+      unique[key] = item;
+    }
+    return unique.values.toList();
   }
 }

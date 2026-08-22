@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:salesgo/core/auth/app_roles.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_ui.dart';
@@ -114,13 +113,6 @@ class SettingsPage extends GetView<SettingsController> {
               label: 'Sinkronisasi Data',
               onTap: () => Get.toNamed('/sync-activity'),
             ),
-            if (session.currentRole.value?.canManageRoutes ?? false)
-              _SettingTile(
-                icon: Icons.route_rounded,
-                label: 'Master Rute Sales',
-                value: session.currentRole.value == AppRole.supervisor ? 'Rute Saya' : 'Semua Sales',
-                onTap: () => Get.toNamed('/route-master'),
-              ),
             const SizedBox(height: 18),
             const _GroupTitle('Data Offline'),
             Obx(
