@@ -24,7 +24,11 @@ class _ActivityPageState extends State<ActivityPage> {
     _future = _load();
   }
 
-  Future<void> _refresh() async => setState(() => _future = _load());
+  Future<void> _refresh() async {
+    final future = _load();
+    setState(() => _future = future);
+    await future;
+  }
 
   Future<List<_ActivityItem>> _load() async {
     final results = <_ActivityItem>[];
@@ -38,8 +42,18 @@ class _ActivityPageState extends State<ActivityPage> {
       results.add(_ActivityItem(title: 'Kunjungan ${visit.status}', description: visit.outletName, queuedAt: visit.createdAt, status: visit.status == 'In Progress' || visit.status == 'Completed' ? 'Terkirim' : 'Pending', sentAt: visit.status == 'In Progress' || visit.status == 'Completed' ? visit.createdAt : null, icon: Icons.location_on_rounded));
     }
     final auditBox = Hive.isBoxOpen('sync_audit_log') ? Hive.box('sync_audit_log') : await Hive.openBox('sync_audit_log');
+    final latestAudits = <String, Map<String, dynamic>>{};
     for (final raw in auditBox.values.whereType<Map>()) {
       final item = Map<String, dynamic>.from(raw);
+      final key = item['syncItemId']?.toString() ?? item['id']?.toString() ?? '';
+      final existing = latestAudits[key];
+      final at = DateTime.tryParse(item['createdAt']?.toString() ?? '');
+      final existingAt = DateTime.tryParse(existing?['createdAt']?.toString() ?? '');
+      if (existing == null || (at != null && (existingAt == null || at.isAfter(existingAt)))) {
+        latestAudits[key] = item;
+      }
+    }
+    for (final item in latestAudits.values) {
       final at = DateTime.tryParse(item['createdAt']?.toString() ?? '');
       if (at == null) continue;
       final event = item['event']?.toString() ?? '';

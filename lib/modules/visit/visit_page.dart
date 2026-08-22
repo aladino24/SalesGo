@@ -10,6 +10,7 @@ import '../../core/location/route_estimate_service.dart';
 import '../../data/models/outlet_model.dart';
 import '../../data/models/visit_model.dart';
 import '../outlet/outlet_detail_page.dart';
+import '../outlet/outlet_page.dart';
 import 'visit_controller.dart';
 
 class VisitPage extends GetView<VisitController> {
@@ -200,6 +201,14 @@ class _VisitRouteCard extends StatelessWidget {
                 padding: const EdgeInsets.only(right: 5),
                 child: SfaStatusChip(label: '${(estimate.durationSeconds / 60).ceil()} mnt', color: AppColors.primary),
               ),
+            IconButton(
+              tooltip: 'Lihat lokasi outlet',
+              onPressed: () => Get.to(
+                () => OutletLocationMapPage(outlet: _outletFor(visit)),
+              ),
+              icon: const Icon(Icons.map_outlined, color: AppColors.primary),
+              visualDensity: VisualDensity.compact,
+            ),
             SfaStatusChip(label: status, color: color),
             const SizedBox(width: 5), const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
           ]),

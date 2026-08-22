@@ -67,6 +67,18 @@ class SyncManager extends GetxController {
       }
 
       for (final item in items) {
+        // Versi lama aplikasi pernah mengantrekan endpoint approval override
+        // terpisah yang tidak tersedia. Approval sekarang dibuat atomik oleh
+        // endpoint check-in, sehingga item lama aman untuk dibuang.
+        if (item.type == 'visit_out_of_radius_approval') {
+          await SyncStorage.addAudit(
+            item: item,
+            event: 'sync_legacy_discarded',
+            message: 'Antrean override lama dihapus; approval dibuat saat check-in tersinkron.',
+          );
+          await SyncStorage.removeItem(item.id);
+          continue;
+        }
         await _syncItem(item);
       }
 
