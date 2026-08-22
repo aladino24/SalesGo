@@ -39,6 +39,8 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
   final _tableScroll = ScrollController();
   final _drafts = <String, _RouteDraft>{};
   var _query = '';
+  var _page = 0;
+  static const _pageSize = 25;
 
   AppRole? get _role => Get.find<SessionService>().currentRole.value;
 
@@ -64,6 +66,7 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
           .map((item) => Map<String, dynamic>.from(item))
           .toList();
       _drafts.clear();
+      _page = 0;
       if (_role == AppRole.branchManager) {
         try {
           final response = await _api.get<List<dynamic>>(ApiEndpoints.routeSales);
@@ -167,10 +170,16 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
     final conflicts = <Map<String, dynamic>>[];
     for (final day in days) {
       for (final week in weeks) {
-        conflicts.addAll(_records.where((item) =>
+        final scheduled = _records.where((item) =>
             item['outletId']?.toString() == outlet.id &&
             (item['dayOfWeek'] as num?)?.toInt() == day &&
-            (item['weekOfMonth'] as num?)?.toInt() == week));
+            (item['weekOfMonth'] as num?)?.toInt() == week).toList();
+        final duplicateForSales = _role == AppRole.branchManager
+            ? scheduled.any((item) => item['salesId']?.toString() == salesId)
+            : scheduled.isNotEmpty;
+        if (duplicateForSales || scheduled.length >= 10) {
+          conflicts.addAll(scheduled);
+        }
       }
     }
     if (conflicts.isNotEmpty) {
@@ -181,7 +190,7 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
       await SfaFeedbackDialog.show(
         type: SfaFeedbackType.warning,
         title: 'Jadwal outlet sudah digunakan',
-        message: '${outlet.code} sudah dijadwalkan untuk ${assignedSales['employeeCode'] ?? assignedSales['name'] ?? 'sales lain'} pada ${_days[((conflict['dayOfWeek'] as num?)?.toInt() ?? 1) - 1]}, minggu ke-${conflict['weekOfMonth']}. Pilih hari atau minggu lain.',
+        message: '${outlet.code} sudah memiliki jadwal untuk ${assignedSales['employeeCode'] ?? assignedSales['name'] ?? 'sales'} pada ${_days[((conflict['dayOfWeek'] as num?)?.toInt() ?? 1) - 1]}, minggu ke-${conflict['weekOfMonth']}. Satu sales tidak boleh duplikat dan maksimal 10 sales dapat dijadwalkan pada slot yang sama.',
       );
       return;
     }
@@ -233,11 +242,12 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
         draft.week != (item['weekOfMonth'] as num?)?.toInt();
   }
 
-  bool _hasLegacyConflict(Map<String, dynamic> item) => _records.any((other) =>
-      other['id'] != item['id'] &&
-      other['outletId']?.toString() == item['outletId']?.toString() &&
-      other['dayOfWeek'] == item['dayOfWeek'] &&
-      other['weekOfMonth'] == item['weekOfMonth']);
+  bool _hasLegacyConflict(Map<String, dynamic> item) =>
+      _records.where((other) =>
+          other['outletId']?.toString() == item['outletId']?.toString() &&
+          other['dayOfWeek'] == item['dayOfWeek'] &&
+          other['weekOfMonth'] == item['weekOfMonth']).length >
+      10;
 
   Future<void> _save(Map<String, dynamic> item) async {
     final id = item['id']?.toString() ?? '';
@@ -276,6 +286,10 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
                     final text = '${outlet['code'] ?? ''} ${outlet['name'] ?? ''} ${sales['employeeCode'] ?? ''} ${sales['name'] ?? ''}'.toLowerCase();
                     return _query.isEmpty || text.contains(_query);
                   }).toList();
+                  final pageCount = records.isEmpty ? 1 : (records.length / _pageSize).ceil();
+                  final page = _page >= pageCount ? pageCount - 1 : _page;
+                  final start = page * _pageSize;
+                  final visibleRecords = records.skip(start).take(_pageSize).toList();
                   return ListView(padding: const EdgeInsets.all(16), children: [
                     const Text('Jadwal rute cabang', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                     const SizedBox(height: 4),
@@ -283,7 +297,10 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: _search,
-                      onChanged: (value) => setState(() => _query = value.trim().toLowerCase()),
+                      onChanged: (value) => setState(() {
+                        _query = value.trim().toLowerCase();
+                        _page = 0;
+                      }),
                       decoration: InputDecoration(
                         hintText: 'Cari kode/nama sales atau outlet',
                         prefixIcon: const Icon(Icons.search_rounded),
@@ -292,7 +309,10 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
                           icon: const Icon(Icons.close_rounded),
                           onPressed: () {
                             _search.clear();
-                            setState(() => _query = '');
+                            setState(() {
+                              _query = '';
+                              _page = 0;
+                            });
                           },
                         ),
                       ),
@@ -306,7 +326,13 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
                     const SizedBox(height: 8),
                     if (records.isEmpty)
                       const Padding(padding: EdgeInsets.only(top: 72), child: SfaEmptyState(icon: Icons.search_off_rounded, title: 'Rute tidak ditemukan', description: 'Hapus atau ubah kata kunci pencarian.'))
-                    else
+                    else ...[
+                      Row(children: [
+                        Expanded(child: Text('Menampilkan ${start + 1}–${start + visibleRecords.length} dari ${records.length} jadwal', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))),
+                        IconButton(tooltip: 'Halaman sebelumnya', onPressed: page == 0 ? null : () => setState(() => _page = page - 1), icon: const Icon(Icons.chevron_left_rounded)),
+                        Text('${page + 1}/$pageCount', style: const TextStyle(fontWeight: FontWeight.w700)),
+                        IconButton(tooltip: 'Halaman berikutnya', onPressed: page + 1 >= pageCount ? null : () => setState(() => _page = page + 1), icon: const Icon(Icons.chevron_right_rounded)),
+                      ]),
                       Card(
                         clipBehavior: Clip.antiAlias,
                         child: Scrollbar(
@@ -322,21 +348,21 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
                                 DataColumn(label: Text('Sen')), DataColumn(label: Text('Sel')), DataColumn(label: Text('Rab')), DataColumn(label: Text('Kam')), DataColumn(label: Text('Jum')), DataColumn(label: Text('Sab')), DataColumn(label: Text('Min')),
                                 DataColumn(label: Text('M1')), DataColumn(label: Text('M2')), DataColumn(label: Text('M3')), DataColumn(label: Text('M4')), DataColumn(label: Text('Aksi')),
                               ],
-                              rows: List.generate(records.length, (index) {
-                                final item = records[index];
+                              rows: List.generate(visibleRecords.length, (index) {
+                                final item = visibleRecords[index];
                                 final outlet = item['outlet'] is Map ? Map<String, dynamic>.from(item['outlet'] as Map) : <String, dynamic>{};
                                 final sales = item['sales'] is Map ? Map<String, dynamic>.from(item['sales'] as Map) : <String, dynamic>{};
                                 final draft = _draftFor(item);
                                 final changed = _isChanged(item);
                                 final conflict = _hasLegacyConflict(item);
-                                return DataRow(color: conflict ? WidgetStatePropertyAll(AppColors.warning.withValues(alpha: .12)) : (index.isOdd ? WidgetStatePropertyAll(AppColors.primarySoft.withValues(alpha: .45)) : null), cells: [
+                                return DataRow(color: conflict ? WidgetStatePropertyAll(AppColors.warning.withValues(alpha: .12)) : ((start + index).isOdd ? WidgetStatePropertyAll(AppColors.primarySoft.withValues(alpha: .45)) : null), cells: [
                                   DataCell(Text('${sales['employeeCode'] ?? '-'}\n${sales['name'] ?? 'Sales'}')),
                                   DataCell(Text(outlet['code']?.toString() ?? '-')),
                                   DataCell(SizedBox(width: 150, child: Text(outlet['name']?.toString() ?? 'Outlet', overflow: TextOverflow.ellipsis))),
                                   ...List.generate(7, (day) => DataCell(Checkbox(value: draft.day == day + 1, onChanged: (_) => _changeDay(item, day + 1)))),
                                   ...List.generate(4, (week) => DataCell(Checkbox(value: draft.week == week + 1, onChanged: (_) => _changeWeek(item, week + 1)))),
                                   DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
-                                    if (conflict) const Tooltip(message: 'Konflik data lama: pilih hari atau minggu lain, lalu Simpan.', child: Icon(Icons.warning_amber_rounded, color: AppColors.warning)),
+                                    if (conflict) const Tooltip(message: 'Slot ini melebihi batas 10 sales. Pilih hari atau minggu lain, lalu Simpan.', child: Icon(Icons.warning_amber_rounded, color: AppColors.warning)),
                                     if (changed) IconButton(tooltip: 'Simpan perubahan', onPressed: () => _save(item), icon: const Icon(Icons.save_rounded, color: AppColors.primary)),
                                     IconButton(tooltip: 'Hapus jadwal', onPressed: () => _delete(item), icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger)),
                                   ])),
@@ -346,6 +372,7 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
                           ),
                         ),
                       ),
+                    ],
                     const SizedBox(height: 88),
                   ]);
                 }),

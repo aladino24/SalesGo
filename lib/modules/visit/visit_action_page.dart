@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../data/models/outlet_model.dart';
 import '../../data/repositories/visit_action_repository.dart';
+import '../../data/datasources/local/visit_local_data_source.dart';
 import '../../app/widgets/sfa_feedback_dialog.dart';
 
 enum VisitActionType { defer, cancel, approval }
@@ -43,6 +44,7 @@ class VisitActionPage extends StatefulWidget {
 class _VisitActionPageState extends State<VisitActionPage> {
   final _reason = TextEditingController();
   final _repository = VisitActionRepository();
+  final _localVisits = VisitLocalDataSource();
   DateTime? _followUp;
   bool _saving = false;
   @override
@@ -76,6 +78,10 @@ class _VisitActionPageState extends State<VisitActionPage> {
       visitId: widget.visitId,
       reason: _reason.text.trim(),
       followUpAt: _followUp?.toIso8601String(),
+    );
+    await _localVisits.updateStatus(
+      widget.visitId,
+      widget.action == VisitActionType.defer ? 'Deferred' : 'Cancelled',
     );
     if (!mounted) return;
     setState(() => _saving = false);

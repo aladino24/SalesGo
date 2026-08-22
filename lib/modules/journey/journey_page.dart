@@ -7,6 +7,7 @@ import '../../app/widgets/sfa_feedback_dialog.dart';
 import '../../app/routes/app_routes.dart';
 import '../../data/models/journey_model.dart';
 import '../visit/visit_controller.dart';
+import '../home/home_controller.dart';
 import 'journey_controller.dart';
 
 class JourneyPage extends GetView<JourneyController> {
@@ -132,7 +133,20 @@ class JourneyPage extends GetView<JourneyController> {
       await Get.dialog(AlertDialog(
         title: const Text('Perjalanan dimulai'),
         content: const Text('Rencana kunjungan telah diunduh dan disimpan untuk digunakan offline.'),
-        actions: [FilledButton(onPressed: () => Get.offNamed(AppRoutes.visit), child: const Text('Lihat Kunjungan'))],
+        actions: [
+          FilledButton(
+            onPressed: () {
+              Get.back();
+              Get.offAllNamed(AppRoutes.home);
+              Future<void>.microtask(() {
+                if (Get.isRegistered<HomeController>()) {
+                  Get.find<HomeController>().changeTab(1);
+                }
+              });
+            },
+            child: const Text('Lihat Kunjungan'),
+          ),
+        ],
       ));
     } catch (error) {
       visits.finishJourneyStart();

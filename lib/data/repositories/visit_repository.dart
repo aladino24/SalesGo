@@ -20,7 +20,11 @@ class VisitRepository {
   Future<List<VisitModel>> getVisits({required bool isOnline}) async {
     if (isOnline) {
       try {
-        final visits = _deduplicate(await _remoteDataSource.getVisits());
+        final local = await _localDataSource.getVisits();
+        final visits = _mergePendingLocalVisits(
+          _deduplicate(await _remoteDataSource.getVisits()),
+          local,
+        );
         await _localDataSource.replaceVisits(visits);
         return visits;
       } catch (_) {
@@ -28,6 +32,23 @@ class VisitRepository {
       }
     }
     return _localDataSource.getVisits();
+  }
+
+  List<VisitModel> _mergePendingLocalVisits(
+    List<VisitModel> remote,
+    List<VisitModel> local,
+  ) {
+    final merged = <String, VisitModel>{for (final item in remote) item.id: item};
+    for (final item in local) {
+      // Check-in/out/tunda/batal lokal dapat masih mengantre ke server. Jangan
+      // mengembalikan status lokal tersebut menjadi Planned dari snapshot lama.
+      final serverItem = merged[item.id];
+      if (item.status != 'Planned' &&
+          (serverItem == null || serverItem.status == 'Planned')) {
+        merged[item.id] = item;
+      }
+    }
+    return _deduplicate(merged.values.toList());
   }
 
   List<VisitModel> _deduplicate(List<VisitModel> visits) {

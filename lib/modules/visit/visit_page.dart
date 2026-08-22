@@ -17,39 +17,52 @@ class VisitPage extends GetView<VisitController> {
   const VisitPage({super.key});
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Kunjungan', style: TextStyle(fontWeight: FontWeight.w800)),
-          actions: [
-            IconButton(onPressed: () {}, icon: const Icon(Icons.tune_rounded)),
-          ],
-        ),
-        body: SafeArea(
-          child: DefaultTabController(
-            length: 3,
-            child: Column(children: [
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: TabBar(
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  onTap: (index) {
-                    if (index == 0) controller.loadVisits();
-                  },
-                  tabs: [Tab(text: 'Hari Ini'), Tab(text: 'Minggu Ini'), Tab(text: 'Rute')],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: TabBarView(children: [
-                  _RouteList(controller: controller),
-                  _WeekVisits(controller: controller),
-                  _RouteMap(controller: controller),
-                ]),
-              ),
-            ]),
+  Widget build(BuildContext context) => Obx(() {
+        final active = controller.activeVisit.value;
+        if (active != null) {
+          return OutletDetailPage(
+            outlet: _outletFor(active),
+            plannedVisitId: active.id,
+          );
+        }
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Kunjungan', style: TextStyle(fontWeight: FontWeight.w800)),
+            actions: [
+              IconButton(onPressed: controller.loadVisits, icon: const Icon(Icons.refresh_rounded)),
+            ],
           ),
-        ),
-      );
+          body: SafeArea(
+            child: DefaultTabController(
+              length: 3,
+              child: Column(children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TabBar(
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    onTap: (index) {
+                      if (index == 0) controller.loadVisits();
+                    },
+                    tabs: const [
+                      Tab(text: 'Hari Ini'),
+                      Tab(text: 'Minggu Ini'),
+                      Tab(text: 'Rute'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: TabBarView(children: [
+                    _RouteList(controller: controller),
+                    _WeekVisits(controller: controller),
+                    _RouteMap(controller: controller),
+                  ]),
+                ),
+              ]),
+            ),
+          ),
+        );
+      });
 }
 
 class _RouteList extends StatefulWidget {

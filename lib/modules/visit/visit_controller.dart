@@ -23,6 +23,7 @@ class VisitController extends GetxController {
   final RxString status = 'Planned'.obs;
   final RxInt totalOutlet = 0.obs;
   final RxList<VisitModel> visits = <VisitModel>[].obs;
+  final Rxn<VisitModel> activeVisit = Rxn<VisitModel>();
   final RxBool isLoading = false.obs;
   final Rxn<LocationSnapshot> currentLocation = Rxn<LocationSnapshot>();
   final RxMap<String, RouteEstimate> routeEstimates = <String, RouteEstimate>{}.obs;
@@ -47,6 +48,7 @@ class VisitController extends GetxController {
     try {
       final data = await _repository.getVisits(isOnline: await _networkInfo.isConnected);
       visits.assignAll(data);
+      activeVisit.value = _findActive(data);
       totalOutlet.value = data.length;
     } finally {
       isLoading.value = false;
@@ -106,4 +108,27 @@ class VisitController extends GetxController {
   }
 
   void updateStatus(String value) => status.value = value;
+
+  void setActiveVisit(VisitModel visit) {
+    final index = visits.indexWhere((item) => item.id == visit.id);
+    if (index >= 0) {
+      visits[index] = visit;
+    } else {
+      visits.add(visit);
+    }
+    activeVisit.value = visit;
+  }
+
+  void closeActiveVisit(String visitId, String status) {
+    final index = visits.indexWhere((item) => item.id == visitId);
+    if (index >= 0) visits[index] = visits[index].copyWith(status: status);
+    if (activeVisit.value?.id == visitId) activeVisit.value = null;
+  }
+
+  VisitModel? _findActive(List<VisitModel> items) {
+    for (final item in items) {
+      if (item.status == 'In Progress') return item;
+    }
+    return null;
+  }
 }

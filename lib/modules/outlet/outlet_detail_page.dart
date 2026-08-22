@@ -17,6 +17,7 @@ import '../sales/sales_order_page.dart';
 import '../visit/check_in_page.dart';
 import '../visit/check_out_page.dart';
 import '../visit/visit_action_page.dart';
+import '../visit/visit_controller.dart';
 import 'outlet_transaction_page.dart';
 
 enum _DetailMenuAction {
@@ -142,8 +143,15 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
                           );
                           if (route == null) return;
                           final completed = await route;
-                          if (completed == true && mounted)
+                          if (completed == true && mounted) {
+                            if (Get.isRegistered<VisitController>()) {
+                              Get.find<VisitController>().closeActiveVisit(
+                                _activeVisitId!,
+                                'Completed',
+                              );
+                            }
                             setState(() => _activeVisitId = null);
+                          }
                         },
                   child: const Text('Check-out'),
                 ),
@@ -161,6 +169,9 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
                           if (visit != null &&
                               visit.status == 'In Progress' &&
                               mounted) {
+                            if (Get.isRegistered<VisitController>()) {
+                              Get.find<VisitController>().setActiveVisit(visit);
+                            }
                             setState(() => _activeVisitId = visit.id);
                           }
                         }
@@ -219,7 +230,15 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
       return;
     }
     final done = await Get.to<bool>(() => VisitActionPage(outlet: outlet, action: action, visitId: _activeVisitId!));
-    if (done == true && mounted) setState(() => _activeVisitId = null);
+    if (done == true && mounted) {
+      if (Get.isRegistered<VisitController>()) {
+        Get.find<VisitController>().closeActiveVisit(
+          _activeVisitId!,
+          action == VisitActionType.defer ? 'Deferred' : 'Cancelled',
+        );
+      }
+      setState(() => _activeVisitId = null);
+    }
   }
 }
 
