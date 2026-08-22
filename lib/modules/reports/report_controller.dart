@@ -60,7 +60,7 @@ class ReportController extends GetxController {
     }
   }
 
-  Future<void> downloadVisitCsv({required bool ownOnly}) async {
+  Future<String> downloadVisitCsv({required bool ownOnly}) async {
     if (!isAllowed) throw StateError('Akses laporan hanya untuk Supervisor dan Branch Manager.');
     final directory = await getApplicationDocumentsDirectory();
     final file = File('${directory.path}${Platform.pathSeparator}laporan-kunjungan-${ownOnly ? 'saya' : 'tim'}-${DateTime.now().millisecondsSinceEpoch}.csv');
@@ -69,8 +69,13 @@ class ReportController extends GetxController {
       queryParameters: {'scope': ownOnly ? 'self' : 'team'},
       options: Options(responseType: ResponseType.bytes, headers: {'Authorization': 'Bearer ${_session.accessToken.value}', 'Accept': 'text/csv', 'ngrok-skip-browser-warning': 'true'}),
     );
-    await file.writeAsBytes(response.data ?? const []);
-    final result = await OpenFilex.open(file.path);
-    if (result.type != ResultType.done) throw StateError(result.message.isEmpty ? 'CSV berhasil disimpan di ${file.path}' : result.message);
+    final bytes = response.data ?? const <int>[];
+    if (bytes.isEmpty) throw StateError('Server mengirim CSV kosong.');
+    await file.writeAsBytes(bytes, flush: true);
+    return file.path;
+  }
+
+  Future<void> openDownloadedFile(String path) async {
+    await OpenFilex.open(path);
   }
 }

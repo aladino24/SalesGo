@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../storage/local_storage.dart';
@@ -16,6 +19,7 @@ class SessionService extends GetxService {
   final RxString accessToken = ''.obs;
   final RxString refreshToken = ''.obs;
   final Rx<DateTime?> expiresAt = Rx<DateTime?>(null);
+  Timer? _expiryTimer;
 
   bool get isAuthenticated => currentRole.value != null && accessToken.value.isNotEmpty && !isAccessTokenExpired;
   bool get isAccessTokenExpired => expiresAt.value != null && !expiresAt.value!.isAfter(DateTime.now());
@@ -46,6 +50,7 @@ class SessionService extends GetxService {
     refreshToken.value = await LocalStorage.readSession(_keyRefreshToken) ?? '';
     final savedExpiry = await LocalStorage.readSession(_keyExpiresAt);
     expiresAt.value = savedExpiry == null ? null : DateTime.tryParse(savedExpiry);
+    _scheduleExpiry();
     return isAuthenticated;
   }
 
@@ -55,6 +60,7 @@ class SessionService extends GetxService {
     accessToken.value = session.accessToken;
     refreshToken.value = session.refreshToken ?? '';
     expiresAt.value = session.expiresAt;
+    _scheduleExpiry();
     await LocalStorage.saveSession(_keyUserRole, session.role.name);
     await LocalStorage.saveSession(_keyUserName, session.userName);
     await LocalStorage.saveSession(_keyAccessToken, session.accessToken);
@@ -63,6 +69,7 @@ class SessionService extends GetxService {
   }
 
   Future<void> logout() async {
+    _expiryTimer?.cancel();
     currentRole.value = null;
     userName.value = '';
     accessToken.value = '';
@@ -73,5 +80,31 @@ class SessionService extends GetxService {
     await LocalStorage.deleteSession(_keyAccessToken);
     await LocalStorage.deleteSession(_keyRefreshToken);
     await LocalStorage.deleteSession(_keyExpiresAt);
+  }
+
+  void _scheduleExpiry() {
+    _expiryTimer?.cancel();
+    final expiry = expiresAt.value;
+    if (expiry == null) return;
+    final duration = expiry.difference(DateTime.now());
+    if (duration <= Duration.zero) {
+      unawaited(_handleExpiredSession());
+      return;
+    }
+    _expiryTimer = Timer(duration, _handleExpiredSession);
+  }
+
+  Future<void> _handleExpiredSession() async {
+    await logout();
+    if (Get.isDialogOpen ?? false) Get.back();
+    await Get.dialog<void>(
+      AlertDialog(
+        title: const Text('Sesi telah berakhir'),
+        content: const Text('Sesi login berlaku selama 5 jam. Silakan masuk kembali untuk melanjutkan.'),
+        actions: [FilledButton(onPressed: () => Get.back(), child: const Text('Ke Login'))],
+      ),
+      barrierDismissible: false,
+    );
+    Get.offAllNamed('/login');
   }
 }

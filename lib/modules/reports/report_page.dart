@@ -21,7 +21,15 @@ class ReportPage extends GetView<ReportController> {
             icon: const Icon(Icons.download_rounded),
             onSelected: (ownOnly) async {
               try {
-                await controller.downloadVisitCsv(ownOnly: ownOnly);
+                final path = await controller.downloadVisitCsv(ownOnly: ownOnly);
+                await SfaFeedbackDialog.show(
+                  type: SfaFeedbackType.success,
+                  title: 'CSV berhasil diunduh',
+                  message: 'File disimpan di perangkat. Anda dapat membukanya sekarang atau dari pengelola file.',
+                  detail: path,
+                  actionLabel: 'Buka CSV',
+                  onAction: () => controller.openDownloadedFile(path),
+                );
               } catch (error) {
                 await SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Unduhan gagal', message: error.toString());
               }

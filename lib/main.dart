@@ -11,7 +11,6 @@ import 'app/theme/app_theme.dart';
 import 'core/storage/local_storage.dart';
 import 'core/storage/sync_storage.dart';
 import 'core/auth/session_service.dart';
-import 'data/repositories/auth_repository.dart';
 import 'core/notifications/push_notification_service.dart';
 
 Future<void> main() async {
@@ -28,14 +27,6 @@ Future<void> main() async {
   final sessionService = SessionService();
   await sessionService.loadSession();
   Get.put<SessionService>(sessionService, permanent: true);
-  if (sessionService.isAccessTokenExpired && sessionService.refreshToken.value.isNotEmpty) {
-    try {
-      await sessionService.saveSession(await AuthRepository().refresh(sessionService.refreshToken.value));
-    } catch (_) {
-      await sessionService.logout();
-    }
-  }
-
   runApp(const SalesGoApp());
 }
 

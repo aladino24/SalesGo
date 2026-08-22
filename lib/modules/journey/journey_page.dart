@@ -248,11 +248,7 @@ class JourneyPage extends GetView<JourneyController> {
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
-                          onPressed:
-                              item.type == 'out_of_town' &&
-                                  item.approvalStatus != 'Approved'
-                              ? null
-                              : () => _startJourney(item),
+                          onPressed: () => _startJourney(item),
                           icon: const Icon(Icons.play_arrow_rounded),
                           label: const Text('Mulai Perjalanan'),
                         ),

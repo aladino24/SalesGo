@@ -156,23 +156,31 @@ class _CheckInPageState extends State<CheckInPage> {
     final submitted = await Get.dialog<bool>(
       AlertDialog(
         title: const Text('Check-in di luar radius'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text('Jarak Anda ${_distanceMeters.toStringAsFixed(0)} meter. Maksimum $_allowedRadiusMeters meter.', style: const TextStyle(fontSize: 12)),
-          const SizedBox(height: 12),
-          TextField(controller: reason, maxLines: 3, maxLength: 200, decoration: const InputDecoration(labelText: 'Alasan override', hintText: 'Contoh: titik GPS outlet tidak akurat')),
-        ]),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('Jarak Anda ${_distanceMeters.toStringAsFixed(0)} meter. Maksimum $_allowedRadiusMeters meter.', style: const TextStyle(fontSize: 12)),
+            const SizedBox(height: 12),
+            TextField(controller: reason, maxLines: 3, maxLength: 200, decoration: const InputDecoration(labelText: 'Alasan override', hintText: 'Contoh: titik GPS outlet tidak akurat')),
+          ]),
+        ),
         actions: [
           TextButton(onPressed: () => Get.back(result: false), child: const Text('Batal')),
           FilledButton(onPressed: () => Get.back(result: true), child: const Text('Ajukan Approval')),
         ],
       ),
     );
-    if (submitted == true && reason.text.trim().isNotEmpty) {
-      setState(() => _overrideReason = reason.text.trim());
+    // Get.dialog menyelesaikan Future sebelum route dialog selesai dibuang.
+    // Salin teks lebih dahulu agar TextField tidak membaca controller yang
+    // telah dispose selama animasi penutupan.
+    final reasonText = reason.text.trim();
+    if (submitted == true && reasonText.isNotEmpty) {
+      if (mounted) setState(() => _overrideReason = reasonText);
     } else if (submitted == true) {
       SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'Alasan wajib', message: 'Tuliskan alasan untuk mengajukan override.');
     }
-    reason.dispose();
+    Future<void>.delayed(const Duration(milliseconds: 350)).then((_) {
+      reason.dispose();
+    });
   }
 
   @override

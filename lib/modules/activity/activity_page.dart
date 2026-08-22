@@ -17,6 +17,8 @@ class ActivityPage extends StatefulWidget {
 
 class _ActivityPageState extends State<ActivityPage> {
   late Future<List<_ActivityItem>> _future;
+  final _search = TextEditingController();
+  var _query = '';
 
   @override
   void initState() {
@@ -30,6 +32,12 @@ class _ActivityPageState extends State<ActivityPage> {
       _future = future;
     });
     await future;
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
   }
 
   Future<List<_ActivityItem>> _load() async {
@@ -73,11 +81,50 @@ class _ActivityPageState extends State<ActivityPage> {
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-        final items = snapshot.data ?? [];
-        if (items.isEmpty) return const SfaEmptyState(icon: Icons.history_outlined, title: 'Belum ada aktivitas', description: 'Kunjungan, perjalanan, dan proses sinkronisasi akan tampil di sini.');
-        return RefreshIndicator(
+        final allItems = snapshot.data ?? <_ActivityItem>[];
+        final items = allItems
+            .where(
+              (item) =>
+                  _query.isEmpty ||
+                  item.title.toLowerCase().contains(_query) ||
+                  item.description.toLowerCase().contains(_query),
+            )
+            .toList();
+        return Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: TextField(
+              controller: _search,
+              onChanged: (value) =>
+                  setState(() => _query = value.trim().toLowerCase()),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search_rounded),
+                hintText: 'Cari aktivitas',
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: () {
+                          _search.clear();
+                          setState(() => _query = '');
+                        },
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+              ),
+            ),
+          ),
+          Expanded(child: RefreshIndicator(
           onRefresh: _refresh,
-          child: ListView.separated(
+          child: allItems.isEmpty
+              ? ListView(children: const [
+                  SizedBox(height: 160),
+                  SfaEmptyState(icon: Icons.history_outlined, title: 'Belum ada aktivitas', description: 'Kunjungan, perjalanan, dan proses sinkronisasi akan tampil di sini.'),
+                ])
+              : items.isEmpty
+                  ? ListView(children: const [
+                      SizedBox(height: 120),
+                      SfaEmptyState(icon: Icons.search_off_rounded, title: 'Aktivitas tidak ditemukan', description: 'Ubah kata kunci atau hapus pencarian untuk melihat seluruh aktivitas.'),
+                    ])
+                  : ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: items.length + 1,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
@@ -94,7 +141,7 @@ class _ActivityPageState extends State<ActivityPage> {
               ));
             },
           ),
-        );
+        ))]);
       },
     ),
   );

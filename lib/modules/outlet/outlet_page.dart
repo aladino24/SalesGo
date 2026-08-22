@@ -9,6 +9,7 @@ import '../../app/widgets/sfa_ui.dart';
 import '../../data/models/outlet_model.dart';
 import 'outlet_controller.dart';
 import 'outlet_detail_page.dart';
+import 'new_outlet_page.dart';
 
 class OutletPage extends GetView<OutletController> {
   const OutletPage({super.key});
@@ -24,6 +25,11 @@ class OutletPage extends GetView<OutletController> {
           'Master Outlet',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Get.to(() => const NewOutletPage()),
+        icon: const Icon(Icons.add_business_rounded),
+        label: const Text('Outlet Baru'),
       ),
       body: SafeArea(
         child: Column(

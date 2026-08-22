@@ -6,6 +6,7 @@ abstract final class ApiEndpoints {
   static const products = '/master/products';
   static const outlets = '/master/outlets';
   static const routeAssignments = '/master/route-assignments';
+  static const routeSales = '/master/route-sales';
   static const visits = '/visits';
   static const visitActivities = '/outlets';
   static const notifications = '/notifications';
