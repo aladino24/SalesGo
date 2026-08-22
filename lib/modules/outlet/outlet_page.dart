@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:latlong2/latlong.dart';
 
+import '../../app/theme/app_colors.dart';
+import '../../app/widgets/sfa_open_street_map.dart';
 import '../../app/widgets/sfa_ui.dart';
 import '../../data/models/outlet_model.dart';
 import 'outlet_controller.dart';
@@ -65,6 +68,7 @@ class OutletPage extends GetView<OutletController> {
                     return _OutletCard(
                       outlet: outlet,
                       onTap: () => Get.to(() => OutletDetailPage(outlet: outlet)),
+                      onShowLocation: () => Get.to(() => OutletLocationMapPage(outlet: outlet)),
                     );
                   },
                 );
@@ -78,10 +82,11 @@ class OutletPage extends GetView<OutletController> {
 }
 
 class _OutletCard extends StatelessWidget {
-  const _OutletCard({required this.outlet, required this.onTap});
+  const _OutletCard({required this.outlet, required this.onTap, required this.onShowLocation});
 
   final OutletModel outlet;
   final VoidCallback onTap;
+  final VoidCallback onShowLocation;
 
   Color get _statusColor {
     switch (outlet.status.toLowerCase()) {
@@ -231,17 +236,52 @@ class _OutletCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: Colors.grey.shade400,
-                      size: 20,
+                    IconButton(
+                      tooltip: 'Lihat lokasi toko',
+                      onPressed: onShowLocation,
+                      icon: const Icon(Icons.map_outlined, color: AppColors.primary),
                     ),
+                    Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400, size: 20),
                   ],
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class OutletLocationMapPage extends StatelessWidget {
+  const OutletLocationMapPage({super.key, required this.outlet});
+  final OutletModel outlet;
+
+  @override
+  Widget build(BuildContext context) {
+    final point = LatLng(outlet.latitude, outlet.longitude);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Lokasi Outlet')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(children: [
+          Expanded(
+            child: SfaOpenStreetMap(
+              center: point,
+              zoom: 16,
+              markers: [SfaMapMarker(point: point, label: '1', color: AppColors.primary)],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.storefront_rounded)),
+              title: Text(outlet.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: Text('${outlet.code}\n${outlet.address}\n${outlet.latitude.toStringAsFixed(6)}, ${outlet.longitude.toStringAsFixed(6)}'),
+              isThreeLine: true,
+            ),
+          ),
+        ]),
       ),
     );
   }

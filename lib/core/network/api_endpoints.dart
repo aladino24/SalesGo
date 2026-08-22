@@ -32,6 +32,7 @@ abstract final class ApiEndpoints {
   static const files = '/files';
   static const monitoringTeam = '/monitoring/team';
   static const reportsSummary = '/reports/summary';
+  static const reportsVisitsCsv = '/reports/visits/export.csv';
   static const attachments = '/attachments';
   static const masterSnapshot = '/master/snapshot';
   static const routeEstimate = '/routes/estimate';

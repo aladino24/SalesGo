@@ -136,7 +136,7 @@ class SettingsController extends GetxController {
       }
       const boxes = [
         'master_products', 'master_outlets', 'visits', 'sales_orders',
-        'outlet_transactions', 'visit_actions', 'visit_timeline', 'journeys',
+        'outlet_transactions', 'visit_actions', 'visit_timeline', 'journeys', 'journey_activities',
         'journey_download_state', 'delivery_notes', 'meetings', 'approvals_cache',
         'promotions', 'files', 'notifications_cache', 'monitoring_cache',
         'outlet_performance', 'dashboard_cache', 'sync_queue_box', 'sync_audit_log',

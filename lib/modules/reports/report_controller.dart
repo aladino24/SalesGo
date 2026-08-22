@@ -1,8 +1,15 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:get/get.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:salesgo/core/auth/app_roles.dart';
 
 import '../../core/auth/session_service.dart';
 import '../../core/network/network_info.dart';
+import '../../core/network/api_config.dart';
+import '../../core/network/api_endpoints.dart';
 import '../../data/repositories/monitoring_repository.dart';
 
 class ReportController extends GetxController {
@@ -51,5 +58,19 @@ class ReportController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  Future<void> downloadVisitCsv({required bool ownOnly}) async {
+    if (!isAllowed) throw StateError('Akses laporan hanya untuk Supervisor dan Branch Manager.');
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}${Platform.pathSeparator}laporan-kunjungan-${ownOnly ? 'saya' : 'tim'}-${DateTime.now().millisecondsSinceEpoch}.csv');
+    final response = await Dio().get<List<int>>(
+      '$baseUrl${ApiEndpoints.reportsVisitsCsv}',
+      queryParameters: {'scope': ownOnly ? 'self' : 'team'},
+      options: Options(responseType: ResponseType.bytes, headers: {'Authorization': 'Bearer ${_session.accessToken.value}', 'Accept': 'text/csv', 'ngrok-skip-browser-warning': 'true'}),
+    );
+    await file.writeAsBytes(response.data ?? const []);
+    final result = await OpenFilex.open(file.path);
+    if (result.type != ResultType.done) throw StateError(result.message.isEmpty ? 'CSV berhasil disimpan di ${file.path}' : result.message);
   }
 }

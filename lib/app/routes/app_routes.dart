@@ -13,4 +13,6 @@ class AppRoutes {
   static const reports = '/reports';
   static const meetings = '/meetings';
   static const meetingDetail = '/meetings/:id';
+  static const syncActivity = '/sync-activity';
+  static const routeMaster = '/route-master';
 }

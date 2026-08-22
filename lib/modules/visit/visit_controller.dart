@@ -27,11 +27,14 @@ class VisitController extends GetxController {
   final Rxn<LocationSnapshot> currentLocation = Rxn<LocationSnapshot>();
   final RxMap<String, RouteEstimate> routeEstimates = <String, RouteEstimate>{}.obs;
   final requiredOnly = true.obs;
+  final RxString searchTerm = ''.obs;
   final RxBool isStartingJourney = false.obs;
   final RxDouble journeyStartProgress = 0.0.obs;
   final RxString journeyStartLabel = ''.obs;
 
   void selectVisitCategory(bool value) => requiredOnly.value = value;
+
+  void searchOutlets(String value) => searchTerm.value = value;
 
   @override
   void onInit() {

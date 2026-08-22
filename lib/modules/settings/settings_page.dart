@@ -112,8 +112,15 @@ class SettingsPage extends GetView<SettingsController> {
             _SettingTile(
               icon: Icons.sync_rounded,
               label: 'Sinkronisasi Data',
-              onTap: controller.syncData,
+              onTap: () => Get.toNamed('/sync-activity'),
             ),
+            if (session.currentRole.value?.canManageRoutes ?? false)
+              _SettingTile(
+                icon: Icons.route_rounded,
+                label: 'Master Rute Sales',
+                value: session.currentRole.value == AppRole.supervisor ? 'Rute Saya' : 'Semua Sales',
+                onTap: () => Get.toNamed('/route-master'),
+              ),
             const SizedBox(height: 18),
             const _GroupTitle('Data Offline'),
             Obx(

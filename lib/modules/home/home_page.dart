@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:salesgo/core/auth/app_roles.dart';
 import 'package:salesgo/modules/settings/settings_controller.dart';
@@ -449,10 +450,10 @@ class _JourneyValue extends StatelessWidget {
 class _ActivityCard extends StatelessWidget {
   const _ActivityCard();
   @override
-  Widget build(BuildContext context) => FutureBuilder<List<VisitModel>>(
-    future: VisitLocalDataSource().getVisits(),
+  Widget build(BuildContext context) => FutureBuilder<List<_HomeActivity>>(
+    future: _loadActivities(),
     builder: (context, snapshot) {
-      final visits = (snapshot.data ?? []).take(2).toList();
+      final activities = (snapshot.data ?? []).take(3).toList();
       if (snapshot.connectionState != ConnectionState.done)
         return const Card(
           child: Padding(
@@ -460,7 +461,7 @@ class _ActivityCard extends StatelessWidget {
             child: LinearProgressIndicator(),
           ),
         );
-      if (visits.isEmpty)
+      if (activities.isEmpty)
         return const Card(
           child: ListTile(
             leading: Icon(Icons.history_outlined),
@@ -470,20 +471,16 @@ class _ActivityCard extends StatelessWidget {
       return Card(
         child: Column(
           children: [
-            for (var index = 0; index < visits.length; index++) ...[
+            for (var index = 0; index < activities.length; index++) ...[
               if (index > 0) const Divider(height: 1),
               _ActivityRow(
-                icon: visits[index].status == 'Completed'
-                    ? Icons.check_circle_rounded
-                    : Icons.location_on_rounded,
-                color: visits[index].status == 'Completed'
-                    ? AppColors.success
-                    : AppColors.primary,
-                title: visits[index].status,
-                subtitle: visits[index].outletName,
+                icon: activities[index].icon,
+                color: activities[index].color,
+                title: activities[index].title,
+                subtitle: activities[index].subtitle,
                 time: DateFormat(
                   'HH:mm',
-                ).format(visits[index].createdAt.toLocal()),
+                ).format(activities[index].createdAt.toLocal()),
               ),
             ],
           ],
@@ -491,6 +488,47 @@ class _ActivityCard extends StatelessWidget {
       );
     },
   );
+}
+
+Future<List<_HomeActivity>> _loadActivities() async {
+  final result = <_HomeActivity>[];
+  final journeyBox = Hive.isBoxOpen('journey_activities')
+      ? Hive.box('journey_activities')
+      : await Hive.openBox('journey_activities');
+  for (final raw in journeyBox.values.whereType<Map>()) {
+    final item = Map<String, dynamic>.from(raw);
+    final started = item['event']?.toString() == 'Perjalanan dimulai';
+    final createdAt = DateTime.tryParse(item['createdAt']?.toString() ?? '');
+    if (createdAt != null) {
+      result.add(_HomeActivity(
+        title: item['event']?.toString() ?? 'Perjalanan',
+        subtitle: item['description']?.toString() ?? 'Perjalanan Sales',
+        createdAt: createdAt,
+        icon: started ? Icons.play_circle_fill_rounded : Icons.stop_circle_rounded,
+        color: started ? AppColors.primary : AppColors.success,
+      ));
+    }
+  }
+  for (final visit in await VisitLocalDataSource().getVisits()) {
+    result.add(_HomeActivity(
+      title: visit.status,
+      subtitle: visit.outletName,
+      createdAt: visit.createdAt,
+      icon: visit.status == 'Completed' ? Icons.check_circle_rounded : Icons.location_on_rounded,
+      color: visit.status == 'Completed' ? AppColors.success : AppColors.primary,
+    ));
+  }
+  result.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  return result;
+}
+
+class _HomeActivity {
+  const _HomeActivity({required this.title, required this.subtitle, required this.createdAt, required this.icon, required this.color});
+  final String title;
+  final String subtitle;
+  final DateTime createdAt;
+  final IconData icon;
+  final Color color;
 }
 
 class _ActivityRow extends StatelessWidget {
@@ -533,9 +571,9 @@ class _MenuTab extends StatelessWidget {
     final canMonitor = role?.canMonitorTeam ?? false;
     return _GridScreen(
       title: 'Menu',
-      subtitle: 'Fitur sesuai peran Anda',
+      subtitle: '${role?.label ?? 'Pengguna'} • fitur sesuai peran Anda',
       sections: [
-        _GridSection('Approval', [
+        if (role?.canApproveTransaction ?? false) _GridSection('Approval', [
           _GridItem(
             Icons.assignment_turned_in_outlined,
             'Approval Order',
@@ -601,6 +639,13 @@ class _MenuTab extends StatelessWidget {
               AppColors.warning,
               null,
               onTap: () => Get.toNamed(AppRoutes.monitoring),
+            ),
+            _GridItem(
+              Icons.route_rounded,
+              'Master Rute',
+              Color(0xFF7258EF),
+              null,
+              onTap: () => Get.toNamed(AppRoutes.routeMaster),
             ),
           ]),
         _GridSection('Lainnya', [
@@ -995,27 +1040,30 @@ class _GridScreen extends StatelessWidget {
   final List<_GridSection> sections;
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 22, 16, 28),
-        children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 26),
-          ...sections,
-        ],
+    backgroundColor: const Color(0xFFF7F9FE),
+    body: Stack(children: [
+      Container(
+        height: 188,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(colors: [Color(0xFF3983FF), AppColors.primaryDark]),
+          borderRadius: BorderRadius.vertical(bottom: Radius.elliptical(220, 42)),
+        ),
       ),
-    ),
+      SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
+          children: [
+            const Row(children: [Icon(Icons.grid_view_rounded, color: Colors.white), SizedBox(width: 8), Text('SalesGo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700))]),
+            const SizedBox(height: 16),
+            Text(title, style: const TextStyle(fontSize: 26, color: Colors.white, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: .82))),
+            const SizedBox(height: 42),
+            ...sections,
+          ],
+        ),
+      ),
+    ]),
   );
 }
 
@@ -1029,10 +1077,7 @@ class _GridSection extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-        ),
+        Row(children: [Container(width: 4, height: 18, decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(4))), const SizedBox(width: 8), Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800))]),
         const SizedBox(height: 12),
         GridView.count(
           crossAxisCount: 3,

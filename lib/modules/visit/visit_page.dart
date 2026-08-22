@@ -58,24 +58,32 @@ class _RouteList extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Obx(() {
         if (controller.isLoading.value) return const Center(child: CircularProgressIndicator());
-        final visits = _routeVisits(controller.visits).where((item) => item.isRequired == controller.requiredOnly.value).toList();
+        final query = controller.searchTerm.value.trim().toLowerCase();
+        final visits = _routeVisits(controller.visits)
+            .where((item) => item.isRequired == controller.requiredOnly.value)
+            .where((item) => query.isEmpty || item.outletName.toLowerCase().contains(query) || (item.outletCode ?? '').toLowerCase().contains(query) || (item.outletAddress ?? '').toLowerCase().contains(query))
+            .toList();
         return ListView.separated(
           key: ValueKey(controller.requiredOnly.value),
           padding: const EdgeInsets.fromLTRB(16, 2, 16, 24),
-          itemCount: visits.length + 3,
+          itemCount: visits.length + 4,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             if (index == 0) return SegmentedButton<bool>(segments: const [ButtonSegment(value: true, label: Text('Wajib')), ButtonSegment(value: false, label: Text('Tidak Wajib'))], selected: {controller.requiredOnly.value}, onSelectionChanged: (value) => controller.selectVisitCategory(value.first));
-            if (index == 1) return _RouteSummary(visits: visits);
-            if (index == visits.length + 2) {
+            if (index == 1) return TextField(
+              onChanged: controller.searchOutlets,
+              decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'Cari nama, kode, atau alamat outlet'),
+            );
+            if (index == 2) return _RouteSummary(visits: visits);
+            if (index == visits.length + 3) {
               return OutlinedButton.icon(
                 onPressed: () => _showRouteMap(context),
                 icon: const Icon(Icons.alt_route_rounded),
                 label: const Text('Lihat Peta Rute'),
               );
             }
-            final visit = visits[index - 2];
-            return _VisitRouteCard(index: index - 1, visit: visit);
+            final visit = visits[index - 3];
+            return _VisitRouteCard(index: index - 2, visit: visit);
           },
         );
       });

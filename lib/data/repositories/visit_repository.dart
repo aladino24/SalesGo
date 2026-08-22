@@ -20,7 +20,7 @@ class VisitRepository {
   Future<List<VisitModel>> getVisits({required bool isOnline}) async {
     if (isOnline) {
       try {
-        final visits = await _remoteDataSource.getVisits();
+        final visits = _deduplicate(await _remoteDataSource.getVisits());
         await _localDataSource.replaceVisits(visits);
         return visits;
       } catch (_) {
@@ -28,6 +28,18 @@ class VisitRepository {
       }
     }
     return _localDataSource.getVisits();
+  }
+
+  List<VisitModel> _deduplicate(List<VisitModel> visits) {
+    final unique = <String, VisitModel>{};
+    for (final visit in visits) {
+      final key = '${visit.outletId ?? visit.outletName}|${visit.plannedFor ?? ''}';
+      final existing = unique[key];
+      if (existing == null || visit.createdAt.isAfter(existing.createdAt)) {
+        unique[key] = visit;
+      }
+    }
+    return unique.values.toList();
   }
 
   Future<void> createVisit(VisitModel visit, {required bool isOnline}) async {

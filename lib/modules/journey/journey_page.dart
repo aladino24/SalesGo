@@ -54,8 +54,11 @@ class JourneyPage extends GetView<JourneyController> {
       final now = DateTime.now();
       try {
         await controller.create(JourneyModel(
-          id: uuid.v4(), type: outOfTown ? 'out_of_town' : 'in_city',
-          destination: destination.text.trim(), startAt: range.start, endAt: outOfTown ? range.end : range.start,
+          id: uuid.v4(),
+          type: range.end.difference(range.start).inDays > 0 ? 'out_of_town' : 'in_city',
+          destination: destination.text.trim(),
+          startAt: range.start,
+          endAt: range.end,
           status: 'Planned', createdAt: now,
         ));
       } catch (error) {

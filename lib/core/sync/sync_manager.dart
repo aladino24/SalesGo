@@ -121,13 +121,7 @@ class SyncManager extends GetxController {
   }
 
   Future<void> _scheduleRetry(SyncItem item, String error) async {
-    const maxAttempts = 5;
     final attempts = item.attemptCount + 1;
-    if (attempts >= maxAttempts) {
-      await SyncStorage.updateItemStatus(item.id, 'blocked', error: error, incrementAttempt: true);
-      await SyncStorage.addAudit(item: item, event: 'sync_blocked', message: error, details: {'attempts': attempts});
-      return;
-    }
     final delayMinutes = 1 << (attempts - 1);
     final nextAttempt = DateTime.now().add(Duration(minutes: delayMinutes > 30 ? 30 : delayMinutes));
     await SyncStorage.updateItemStatus(item.id, 'failed', error: error, nextAttemptAt: nextAttempt, incrementAttempt: true);

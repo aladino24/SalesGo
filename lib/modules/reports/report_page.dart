@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_ui.dart';
+import '../../app/widgets/sfa_feedback_dialog.dart';
 import 'report_controller.dart';
 
 class ReportPage extends GetView<ReportController> {
@@ -14,6 +15,23 @@ class ReportPage extends GetView<ReportController> {
         'Laporan Cabang',
         style: TextStyle(fontWeight: FontWeight.w800),
       ),
+      actions: [
+        if (controller.isAllowed)
+          PopupMenuButton<bool>(
+            icon: const Icon(Icons.download_rounded),
+            onSelected: (ownOnly) async {
+              try {
+                await controller.downloadVisitCsv(ownOnly: ownOnly);
+              } catch (error) {
+                await SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Unduhan gagal', message: error.toString());
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: true, child: Text('CSV kunjungan saya')),
+              PopupMenuItem(value: false, child: Text('CSV kunjungan tim/cabang')),
+            ],
+          ),
+      ],
     ),
     body: SafeArea(
       child: Obx(() {

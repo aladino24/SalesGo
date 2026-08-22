@@ -39,7 +39,15 @@ class VisitLocalDataSource {
 
   Future<void> replaceVisits(List<VisitModel> visits) async {
     final box = await _box;
+    final unique = <String, VisitModel>{};
+    for (final visit in visits) {
+      final key = '${visit.outletId ?? visit.outletName}|${visit.plannedFor ?? ''}';
+      final existing = unique[key];
+      if (existing == null || visit.createdAt.isAfter(existing.createdAt)) {
+        unique[key] = visit;
+      }
+    }
     await box.clear();
-    await box.putAll({for (final visit in visits) visit.id: visit.toJson()});
+    await box.putAll({for (final visit in unique.values) visit.id: visit.toJson()});
   }
 }

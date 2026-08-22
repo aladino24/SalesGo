@@ -138,16 +138,9 @@ class _CheckInPageState extends State<CheckInPage> {
           if (isOverride) 'outOfRadiusOverride': {'reason': _overrideReason, 'requestedAt': DateTime.now().toUtc().toIso8601String()},
         },
       );
-      if (isOverride) {
-        await Get.find<SyncManager>().queueItem(
-          type: 'visit_out_of_radius_approval',
-          endpoint: ApiEndpoints.visitApprovals,
-          method: 'POST',
-          uuid: uuid.v4(),
-          idempotencyKey: uuid.v4(),
-          payload: {'visitId': visit.id, 'outletId': widget.outlet.id, 'reason': _overrideReason, 'distanceMeters': _distanceMeters, 'location': location.toJson()},
-        );
-      }
+      // Backend membuat Approval secara atomik setelah check-in (beserta
+      // pemeriksaan radius). Jangan antrekan endpoint approval terpisah,
+      // karena keputusan harus selalu terkait visit yang sudah tersimpan.
       await VisitTimelineRepository().record(outletId: widget.outlet.id, visitId: visit.id, activity: 'check_in', description: isOverride ? 'Check-in di luar radius menunggu approval' : 'Check-in outlet', location: location.toJson());
 
       if (!mounted) return;

@@ -78,10 +78,12 @@ class JourneyRepository {
       try {
         final response = await _api.patch<dynamic>(endpoint, data: payload, idempotencyKey: uuid.v4());
         if (response is Map) await (await _box).put(item.id, JourneyModel.fromJson(Map<String, dynamic>.from(response)).toJson());
+        await _recordActivity(item, status);
         return;
       } catch (_) {}
     }
     await _sync.queueItem(type: 'journey_status', endpoint: endpoint, method: 'PATCH', payload: payload, uuid: uuid.v4(), idempotencyKey: uuid.v4());
+    await _recordActivity(item, status);
   }
 
   Future<void> start(JourneyModel item) async {
@@ -91,6 +93,7 @@ class JourneyRepository {
     const uuid = Uuid();
     final response = await _api.post<dynamic>('${ApiEndpoints.journeys}/$serverId/start', data: const <String, dynamic>{}, idempotencyKey: uuid.v4());
     if (response is Map) await (await _box).put(item.id, JourneyModel.fromJson(Map<String, dynamic>.from(response)).toJson());
+    await _recordActivity(resolved, 'Active');
   }
 
   Future<JourneyModel> _resolveServerJourney(JourneyModel item) async {
@@ -129,4 +132,20 @@ class JourneyRepository {
   }
 
   List<JourneyModel> _sorted(List<JourneyModel> items) => items..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+  Future<void> _recordActivity(JourneyModel item, String status) async {
+    if (status != 'Active' && status != 'Completed') return;
+    final box = Hive.isBoxOpen('journey_activities')
+        ? Hive.box('journey_activities')
+        : await Hive.openBox('journey_activities');
+    final event = status == 'Active' ? 'Perjalanan dimulai' : 'Perjalanan diakhiri';
+    final id = '${item.id}-$status';
+    await box.put(id, {
+      'id': id,
+      'journeyId': item.id,
+      'event': event,
+      'description': item.destination,
+      'createdAt': DateTime.now().toUtc().toIso8601String(),
+    });
+  }
 }
