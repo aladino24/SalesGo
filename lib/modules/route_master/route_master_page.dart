@@ -50,16 +50,83 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
           (record['sales'] as Map)['id'].toString(): (record['sales'] as Map)['name']?.toString() ?? 'Sales',
     };
     String? selectedSalesId = salesOptions.keys.isEmpty ? null : salesOptions.keys.first;
-    final saved = await Get.dialog<bool>(AlertDialog(
-      title: const Text('Atur Rute Outlet'),
-      content: StatefulBuilder(builder: (context, setDialogState) => SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        DropdownButtonFormField<String>(value: outletId, isExpanded: true, items: outlets.map((outlet) => DropdownMenuItem(value: outlet.id, child: Text('${outlet.code} - ${outlet.name}', overflow: TextOverflow.ellipsis))).toList(), onChanged: (value) => setDialogState(() => outletId = value ?? outletId), decoration: const InputDecoration(labelText: 'Outlet')),
-        if (role == AppRole.branchManager) DropdownButtonFormField<String>(value: selectedSalesId, items: salesOptions.entries.map((item) => DropdownMenuItem(value: item.key, child: Text(item.value))).toList(), onChanged: (value) => setDialogState(() => selectedSalesId = value), decoration: const InputDecoration(labelText: 'Sales')),
-        DropdownButtonFormField<int>(value: day, items: List.generate(7, (index) => DropdownMenuItem(value: index + 1, child: Text('Hari ${index + 1}'))), onChanged: (value) => setDialogState(() => day = value ?? day), decoration: const InputDecoration(labelText: 'Hari dalam minggu')),
-        DropdownButtonFormField<int>(value: week, items: List.generate(4, (index) => DropdownMenuItem(value: index + 1, child: Text('Minggu ${index + 1}'))), onChanged: (value) => setDialogState(() => week = value ?? week), decoration: const InputDecoration(labelText: 'Minggu dalam bulan')),
-      ])),
-      actions: [TextButton(onPressed: () => Get.back(result: false), child: const Text('Batal')), FilledButton(onPressed: () => Get.back(result: true), child: const Text('Simpan'))],
-    ));
+    final saved = await Get.dialog<bool>(
+      AlertDialog(
+        title: const Text('Atur Rute Outlet'),
+        content: StatefulBuilder(
+          builder: (context, setDialogState) => SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: outletId,
+                  isExpanded: true,
+                  items: outlets
+                      .map((outlet) => DropdownMenuItem(
+                            value: outlet.id,
+                            child: Text(
+                              '${outlet.code} - ${outlet.name}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ))
+                      .toList(),
+                  onChanged: (value) =>
+                      setDialogState(() => outletId = value ?? outletId),
+                  decoration: const InputDecoration(labelText: 'Outlet'),
+                ),
+                if (role == AppRole.branchManager)
+                  DropdownButtonFormField<String>(
+                    value: selectedSalesId,
+                    items: salesOptions.entries
+                        .map((item) => DropdownMenuItem(
+                              value: item.key,
+                              child: Text(item.value),
+                            ))
+                        .toList(),
+                    onChanged: (value) =>
+                        setDialogState(() => selectedSalesId = value),
+                    decoration: const InputDecoration(labelText: 'Sales'),
+                  ),
+                DropdownButtonFormField<int>(
+                  value: day,
+                  items: List.generate(
+                    7,
+                    (index) => DropdownMenuItem(
+                      value: index + 1,
+                      child: Text('Hari ${index + 1}'),
+                    ),
+                  ),
+                  onChanged: (value) => setDialogState(() => day = value ?? day),
+                  decoration: const InputDecoration(labelText: 'Hari dalam minggu'),
+                ),
+                DropdownButtonFormField<int>(
+                  value: week,
+                  items: List.generate(
+                    4,
+                    (index) => DropdownMenuItem(
+                      value: index + 1,
+                      child: Text('Minggu ${index + 1}'),
+                    ),
+                  ),
+                  onChanged: (value) => setDialogState(() => week = value ?? week),
+                  decoration: const InputDecoration(labelText: 'Minggu dalam bulan'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Get.back(result: true),
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
     if (saved != true) return;
     if (role == AppRole.branchManager && selectedSalesId == null) {
       throw StateError('Belum ada sales pada master rute. Tambahkan route seed untuk sales terlebih dahulu.');
