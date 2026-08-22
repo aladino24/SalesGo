@@ -20,14 +20,12 @@ class RouteEstimateService {
 
   Future<RouteEstimate> estimate({required LocationSnapshot origin, required double destinationLatitude, required double destinationLongitude}) async {
     try {
-      final response = await _api.get<Map<String, dynamic>>(ApiEndpoints.routeEstimate, queryParameters: {
-        'originLat': origin.latitude,
-        'originLng': origin.longitude,
-        'destinationLat': destinationLatitude,
-        'destinationLng': destinationLongitude,
+      final response = await _api.post<Map<String, dynamic>>(ApiEndpoints.routeEstimate, data: {
+        'origin': {'latitude': origin.latitude, 'longitude': origin.longitude},
+        'destination': {'latitude': destinationLatitude, 'longitude': destinationLongitude},
       });
-      final distance = (response['distanceMeters'] as num?)?.toDouble();
-      final duration = (response['durationSeconds'] as num?)?.toInt();
+      final distance = ((response['distanceMeters'] as num?)?.toDouble()) ?? ((response['distanceKm'] as num?)?.toDouble() ?? 0) * 1000;
+      final duration = ((response['durationSeconds'] as num?)?.toInt()) ?? ((response['durationMinutes'] as num?)?.toInt() ?? 0) * 60;
       if (distance != null && duration != null) return RouteEstimate(distanceMeters: distance, durationSeconds: duration, isEstimated: false);
     } catch (_) {
       // Offline or unavailable routing provider: use straight-line fallback.

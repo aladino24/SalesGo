@@ -57,5 +57,24 @@ class VisitController extends GetxController {
     }
   }
 
+  List<VisitModel> recommendedRoute(List<VisitModel> source) {
+    final remaining = source.where((visit) => visit.status != 'Completed' && visit.latitude != null && visit.longitude != null).toList();
+    final result = <VisitModel>[];
+    var latitude = currentLocation.value?.latitude;
+    var longitude = currentLocation.value?.longitude;
+    while (remaining.isNotEmpty) {
+      if (latitude == null || longitude == null) {
+        result.addAll(remaining);
+        break;
+      }
+      remaining.sort((a, b) => _locationService.distanceInMeters(fromLatitude: latitude!, fromLongitude: longitude!, toLatitude: a.latitude!, toLongitude: a.longitude!).compareTo(_locationService.distanceInMeters(fromLatitude: latitude!, fromLongitude: longitude!, toLatitude: b.latitude!, toLongitude: b.longitude!)));
+      final next = remaining.removeAt(0);
+      result.add(next);
+      latitude = next.latitude;
+      longitude = next.longitude;
+    }
+    return result;
+  }
+
   void updateStatus(String value) => status.value = value;
 }
