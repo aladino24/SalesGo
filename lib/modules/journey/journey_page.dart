@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/widgets/sfa_ui.dart';
+import '../../app/widgets/sfa_feedback_dialog.dart';
 import '../../app/routes/app_routes.dart';
 import '../../data/models/journey_model.dart';
 import '../visit/visit_controller.dart';
@@ -38,23 +39,39 @@ class JourneyPage extends GetView<JourneyController> {
     if (result == true && destination.text.trim().isNotEmpty) {
       const uuid = Uuid();
       final now = DateTime.now();
-      await controller.create(JourneyModel(
-        id: uuid.v4(), type: outOfTown ? 'out_of_town' : 'in_city',
-        destination: destination.text.trim(), startAt: range.start, endAt: outOfTown ? range.end : range.start,
-        status: 'Planned', createdAt: now,
-      ));
+      try {
+        await controller.create(JourneyModel(
+          id: uuid.v4(), type: outOfTown ? 'out_of_town' : 'in_city',
+          destination: destination.text.trim(), startAt: range.start, endAt: outOfTown ? range.end : range.start,
+          status: 'Planned', createdAt: now,
+        ));
+      } catch (error) {
+        await SfaFeedbackDialog.show(
+          type: SfaFeedbackType.error,
+          title: 'Perjalanan belum dibuat',
+          message: error.toString().replaceFirst('Exception: ', ''),
+        );
+      }
     }
     destination.dispose();
   }
 
   Future<void> _startJourney(JourneyModel item) async {
-    await controller.start(item);
-    if (Get.isRegistered<VisitController>()) await Get.find<VisitController>().loadVisits();
-    await Get.dialog(AlertDialog(
-      title: const Text('Perjalanan dimulai'),
-      content: const Text('Rencana kunjungan telah diunduh dan disimpan untuk digunakan offline.'),
-      actions: [FilledButton(onPressed: () => Get.offNamed(AppRoutes.visit), child: const Text('Lihat Kunjungan'))],
-    ));
+    try {
+      await controller.start(item);
+      if (Get.isRegistered<VisitController>()) await Get.find<VisitController>().loadVisits();
+      await Get.dialog(AlertDialog(
+        title: const Text('Perjalanan dimulai'),
+        content: const Text('Rencana kunjungan telah diunduh dan disimpan untuk digunakan offline.'),
+        actions: [FilledButton(onPressed: () => Get.offNamed(AppRoutes.visit), child: const Text('Lihat Kunjungan'))],
+      ));
+    } catch (error) {
+      await SfaFeedbackDialog.show(
+        type: SfaFeedbackType.error,
+        title: 'Perjalanan belum dapat dimulai',
+        message: error.toString().replaceFirst('Bad state: ', ''),
+      );
+    }
   }
 
   @override

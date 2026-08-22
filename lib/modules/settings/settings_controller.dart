@@ -125,9 +125,14 @@ class SettingsController extends GetxController {
     isClearingLocalData.value = true;
     try {
       final information = InformationRepository();
-      final cachedFiles = await information.getFiles(online: false);
-      for (final file in cachedFiles.where((file) => file.isCached)) {
-        await information.removeCache(file);
+      try {
+        final cachedFiles = await information.getFiles(online: false);
+        for (final file in cachedFiles.where((file) => file.isCached)) {
+          await information.removeCache(file);
+        }
+      } catch (_) {
+        // Cache Hive tetap dibersihkan di bawah. Kegagalan satu file tidak
+        // boleh menghentikan reset data lokal seluruh aplikasi.
       }
       const boxes = [
         'master_products', 'master_outlets', 'visits', 'sales_orders',
@@ -138,9 +143,14 @@ class SettingsController extends GetxController {
       ];
       var deletedRecords = 0;
       for (final name in boxes) {
-        final box = Hive.isBoxOpen(name) ? Hive.box(name) : await Hive.openBox(name);
-        deletedRecords += box.length;
-        await box.clear();
+        try {
+          final box = Hive.isBoxOpen(name) ? Hive.box(name) : await Hive.openBox(name);
+          deletedRecords += box.length;
+          await box.clear();
+        } catch (_) {
+          // Box yang belum pernah dibuat atau gagal dibuka tidak menghalangi
+          // penghapusan dataset lokal lainnya.
+        }
       }
       await LocalStorage.appBox.deleteAll([
         'last_master_download_at', 'last_master_generated_at', 'last_master_revision',
