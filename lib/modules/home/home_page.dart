@@ -176,9 +176,10 @@ class _DashboardTab extends StatelessWidget {
               const SizedBox(height: 8),
               const _JourneyCard(),
               const SizedBox(height: 20),
-              const SfaSectionTitle(
+              SfaSectionTitle(
                 title: 'Aktivitas Terbaru',
                 actionLabel: 'Lihat Semua',
+                onAction: () => Get.toNamed(AppRoutes.activities),
               ),
               const SizedBox(height: 8),
               const _ActivityCard(),
@@ -1050,18 +1051,24 @@ class _GridScreen extends StatelessWidget {
         ),
       ),
       SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
-          children: [
-            const Row(children: [Icon(Icons.grid_view_rounded, color: Colors.white), SizedBox(width: 8), Text('SalesGo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700))]),
-            const SizedBox(height: 16),
-            Text(title, style: const TextStyle(fontSize: 26, color: Colors.white, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 4),
-            Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: .82))),
-            const SizedBox(height: 42),
-            ...sections,
-          ],
-        ),
+        child: Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Row(children: [Icon(Icons.grid_view_rounded, color: Colors.white), SizedBox(width: 8), Text('SalesGo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700))]),
+              const SizedBox(height: 16),
+              Text(title, style: const TextStyle(fontSize: 26, color: Colors.white, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: .82))),
+            ]),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 22, 16, 28),
+              children: sections,
+            ),
+          ),
+        ]),
       ),
     ]),
   );

@@ -13,6 +13,22 @@ class JourneyPage extends GetView<JourneyController> {
   const JourneyPage({super.key});
 
   Future<void> _createJourney(BuildContext context, bool outOfTown) async {
+    JourneyModel? active;
+    for (final journey in controller.journeys) {
+      if (journey.status == 'Active') {
+        active = journey;
+        break;
+      }
+    }
+    if (active != null) {
+      await SfaFeedbackDialog.show(
+        type: SfaFeedbackType.warning,
+        title: 'Masih ada perjalanan aktif',
+        message:
+            'Perjalanan ke ${active.destination} masih berlangsung. Akhiri atau batalkan perjalanan tersebut sebelum membuat perjalanan baru.',
+      );
+      return;
+    }
     final destination = TextEditingController();
     final range = await showDateRangePicker(
       context: context,
@@ -73,6 +89,21 @@ class JourneyPage extends GetView<JourneyController> {
   }
 
   Future<void> _startJourney(JourneyModel item) async {
+    JourneyModel? active;
+    for (final journey in controller.journeys) {
+      if (journey.status == 'Active') {
+        active = journey;
+        break;
+      }
+    }
+    if (active != null && active.id != item.id) {
+      await SfaFeedbackDialog.show(
+        type: SfaFeedbackType.warning,
+        title: 'Masih ada perjalanan aktif',
+        message: 'Akhiri perjalanan ke ${active.destination} terlebih dahulu sebelum memulai perjalanan baru.',
+      );
+      return;
+    }
     final visits = Get.isRegistered<VisitController>() ? Get.find<VisitController>() : Get.put(VisitController());
     visits.beginJourneyStart();
     Get.dialog(

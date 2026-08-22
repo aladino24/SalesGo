@@ -51,14 +51,37 @@ class VisitPage extends GetView<VisitController> {
       );
 }
 
-class _RouteList extends StatelessWidget {
+class _RouteList extends StatefulWidget {
   const _RouteList({required this.controller});
   final VisitController controller;
 
   @override
+  State<_RouteList> createState() => _RouteListState();
+}
+
+class _RouteListState extends State<_RouteList> {
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController(text: widget.controller.searchTerm.value);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => Obx(() {
-        if (controller.isLoading.value) return const Center(child: CircularProgressIndicator());
+        final controller = widget.controller;
+        if (controller.isLoading.value && controller.visits.isEmpty) return const Center(child: CircularProgressIndicator());
         final query = controller.searchTerm.value.trim().toLowerCase();
+        if (_searchController.text != controller.searchTerm.value) {
+          _searchController.value = TextEditingValue(text: controller.searchTerm.value, selection: TextSelection.collapsed(offset: controller.searchTerm.value.length));
+        }
         final visits = _routeVisits(controller.visits)
             .where((item) => item.isRequired == controller.requiredOnly.value)
             .where((item) => query.isEmpty || item.outletName.toLowerCase().contains(query) || (item.outletCode ?? '').toLowerCase().contains(query) || (item.outletAddress ?? '').toLowerCase().contains(query))
@@ -71,8 +94,20 @@ class _RouteList extends StatelessWidget {
           itemBuilder: (context, index) {
             if (index == 0) return SegmentedButton<bool>(segments: const [ButtonSegment(value: true, label: Text('Wajib')), ButtonSegment(value: false, label: Text('Tidak Wajib'))], selected: {controller.requiredOnly.value}, onSelectionChanged: (value) => controller.selectVisitCategory(value.first));
             if (index == 1) return TextField(
+              controller: _searchController,
               onChanged: controller.searchOutlets,
-              decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'Cari nama, kode, atau alamat outlet'),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search_rounded),
+                hintText: 'Cari nama, kode, atau alamat outlet',
+                suffixIcon: controller.searchTerm.value.isEmpty ? null : IconButton(
+                  tooltip: 'Hapus pencarian',
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: () {
+                    _searchController.clear();
+                    controller.searchOutlets('');
+                  },
+                ),
+              ),
             );
             if (index == 2) return _RouteSummary(visits: visits);
             if (index == visits.length + 3) {

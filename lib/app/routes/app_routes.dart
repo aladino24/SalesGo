@@ -15,4 +15,5 @@ class AppRoutes {
   static const meetingDetail = '/meetings/:id';
   static const syncActivity = '/sync-activity';
   static const routeMaster = '/route-master';
+  static const activities = '/activities';
 }

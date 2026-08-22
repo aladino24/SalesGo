@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_open_street_map.dart';
+import '../../core/location/location_service.dart';
 import '../../app/widgets/sfa_ui.dart';
 import '../../data/models/outlet_model.dart';
 import 'outlet_controller.dart';
@@ -253,13 +254,38 @@ class _OutletCard extends StatelessWidget {
   }
 }
 
-class OutletLocationMapPage extends StatelessWidget {
+class OutletLocationMapPage extends StatefulWidget {
   const OutletLocationMapPage({super.key, required this.outlet});
   final OutletModel outlet;
 
   @override
+  State<OutletLocationMapPage> createState() => _OutletLocationMapPageState();
+}
+
+class _OutletLocationMapPageState extends State<OutletLocationMapPage> {
+  final _locationService = LocationService();
+  LocationSnapshot? _currentLocation;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentLocation();
+  }
+
+  Future<void> _loadCurrentLocation() async {
+    try {
+      final location = await _locationService.currentLocation();
+      if (mounted) setState(() => _currentLocation = location);
+    } on LocationFailure {
+      // Marker outlet tetap dapat digunakan jika GPS ditolak/tidak tersedia.
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final outlet = widget.outlet;
     final point = LatLng(outlet.latitude, outlet.longitude);
+    final current = _currentLocation == null ? null : LatLng(_currentLocation!.latitude, _currentLocation!.longitude);
     return Scaffold(
       appBar: AppBar(title: const Text('Lokasi Outlet')),
       body: Padding(
@@ -269,10 +295,14 @@ class OutletLocationMapPage extends StatelessWidget {
             child: SfaOpenStreetMap(
               center: point,
               zoom: 16,
-              markers: [SfaMapMarker(point: point, label: '1', color: AppColors.primary)],
+              markers: [
+                SfaMapMarker(point: point, label: 'Toko', color: AppColors.primary),
+                if (current != null) SfaMapMarker(point: current, label: '', color: AppColors.success, isCurrentLocation: true),
+              ],
             ),
           ),
           const SizedBox(height: 12),
+          if (current == null) const Padding(padding: EdgeInsets.only(bottom: 8), child: Text('Mengambil lokasi Anda…', style: TextStyle(fontSize: 11, color: AppColors.textSecondary))),
           Card(
             child: ListTile(
               leading: const CircleAvatar(child: Icon(Icons.storefront_rounded)),
