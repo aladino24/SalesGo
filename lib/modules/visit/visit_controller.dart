@@ -26,6 +26,8 @@ class VisitController extends GetxController {
   final RxMap<String, RouteEstimate> routeEstimates = <String, RouteEstimate>{}.obs;
   final requiredOnly = true.obs;
 
+  void selectVisitCategory(bool value) => requiredOnly.value = value;
+
   @override
   void onInit() {
     super.onInit();

@@ -22,6 +22,11 @@ class AuthInterceptor extends Interceptor {
       options.headers['Content-Type'] = 'application/json';
     }
     options.headers['Accept'] = 'application/json';
+    // ngrok free menampilkan halaman interstitial untuk client tanpa browser.
+    // Header ini hanya relevan saat API development menggunakan domain ngrok.
+    if (options.uri.host.endsWith('ngrok-free.dev') || options.uri.host.endsWith('ngrok.io')) {
+      options.headers['ngrok-skip-browser-warning'] = 'true';
+    }
 
     return handler.next(options);
   }

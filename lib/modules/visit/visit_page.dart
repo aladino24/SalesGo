@@ -57,11 +57,12 @@ class _RouteList extends StatelessWidget {
         if (controller.isLoading.value) return const Center(child: CircularProgressIndicator());
         final visits = _routeVisits(controller.visits).where((item) => item.isRequired == controller.requiredOnly.value).toList();
         return ListView.separated(
+          key: ValueKey(controller.requiredOnly.value),
           padding: const EdgeInsets.fromLTRB(16, 2, 16, 24),
           itemCount: visits.length + 3,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
-            if (index == 0) return SegmentedButton<bool>(segments: const [ButtonSegment(value: true, label: Text('Wajib')), ButtonSegment(value: false, label: Text('Tidak Wajib'))], selected: {controller.requiredOnly.value}, onSelectionChanged: (value) => controller.requiredOnly.value = value.first);
+            if (index == 0) return SegmentedButton<bool>(segments: const [ButtonSegment(value: true, label: Text('Wajib')), ButtonSegment(value: false, label: Text('Tidak Wajib'))], selected: {controller.requiredOnly.value}, onSelectionChanged: (value) => controller.selectVisitCategory(value.first));
             if (index == 1) return _RouteSummary(visits: visits);
             if (index == visits.length + 2) {
               return OutlinedButton.icon(

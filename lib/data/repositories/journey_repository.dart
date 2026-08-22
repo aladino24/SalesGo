@@ -59,7 +59,9 @@ class JourneyRepository {
     await (await _box).put(item.id, updated.toJson());
     const uuid = Uuid();
     final payload = {'status': status, if (reason != null && reason.isNotEmpty) 'reason': reason};
-    final endpoint = '${ApiEndpoints.journeys}/${item.id}/status';
+    final journeyId = item.serverId;
+    if (journeyId == null || journeyId.isEmpty) throw StateError('Perjalanan belum tersinkron ke server.');
+    final endpoint = '${ApiEndpoints.journeys}/$journeyId/status';
     if (await _network.isConnected) {
       try {
         final response = await _api.patch<dynamic>(endpoint, data: payload, idempotencyKey: uuid.v4());

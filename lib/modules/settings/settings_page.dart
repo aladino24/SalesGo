@@ -184,12 +184,12 @@ class SettingsPage extends GetView<SettingsController> {
               icon: Icons.info_outline_rounded,
               label: 'Tentang Aplikasi',
             ),
-            _SettingTile(
+            Obx(() => _SettingTile(
               icon: Icons.delete_outline_rounded,
-              label: 'Hapus Data Lokal',
+              label: controller.isClearingLocalData.value ? 'Menghapus Data Lokal...' : 'Hapus Data Lokal',
               color: AppColors.danger,
-              onTap: controller.deleteAllData,
-            ),
+              onTap: controller.isClearingLocalData.value ? null : controller.deleteAllData,
+            )),
             _SettingTile(
               icon: Icons.logout_rounded,
               label: 'Logout',
