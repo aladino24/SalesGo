@@ -41,7 +41,11 @@ class ApprovalController extends GetxController {
     }
   }
 
-  Future<void> approve(String approvalId) async {
+  Future<void> decide(
+    String approvalId, {
+    required bool approved,
+    String? comment,
+  }) async {
     final index = approvals.indexWhere((item) => item.id == approvalId);
     if (index >= 0) {
       final updated = ApprovalModel(
@@ -50,28 +54,15 @@ class ApprovalController extends GetxController {
         entityId: approvals[index].entityId,
         requestedBy: approvals[index].requestedBy,
         reason: approvals[index].reason,
-        status: 'Approved',
+        status: approved ? 'Approved' : 'Rejected',
         createdAt: approvals[index].createdAt,
       );
       approvals[index] = updated;
-      await _repository.decide(item: updated, approved: true);
-    }
-  }
-
-  Future<void> reject(String approvalId) async {
-    final index = approvals.indexWhere((item) => item.id == approvalId);
-    if (index >= 0) {
-      final updated = ApprovalModel(
-        id: approvals[index].id,
-        type: approvals[index].type,
-        entityId: approvals[index].entityId,
-        requestedBy: approvals[index].requestedBy,
-        reason: approvals[index].reason,
-        status: 'Rejected',
-        createdAt: approvals[index].createdAt,
+      await _repository.decide(
+        item: updated,
+        approved: approved,
+        comment: comment,
       );
-      approvals[index] = updated;
-      await _repository.decide(item: updated, approved: false);
     }
   }
 }

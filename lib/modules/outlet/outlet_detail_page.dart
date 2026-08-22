@@ -30,9 +30,15 @@ enum _DetailMenuAction {
 }
 
 class OutletDetailPage extends StatefulWidget {
-  const OutletDetailPage({super.key, required this.outlet, this.plannedVisitId});
+  const OutletDetailPage({
+    super.key,
+    required this.outlet,
+    this.plannedVisitId,
+    this.isRequired = true,
+  });
   final OutletModel outlet;
   final String? plannedVisitId;
+  final bool isRequired;
 
   @override
   State<OutletDetailPage> createState() => _OutletDetailPageState();
@@ -162,7 +168,11 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
                   onPressed: _activeVisitId == null
                       ? () async {
                           final route = Get.to<VisitModel>(
-                            () => CheckInPage(outlet: outlet, plannedVisitId: widget.plannedVisitId),
+                            () => CheckInPage(
+                              outlet: outlet,
+                              plannedVisitId: widget.plannedVisitId,
+                              isRequired: widget.isRequired,
+                            ),
                           );
                           if (route == null) return;
                           final visit = await route;

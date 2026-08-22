@@ -27,19 +27,25 @@ class SfaOpenStreetMap extends StatelessWidget {
     required this.markers,
     this.route = const [],
     this.zoom = 14.5,
+    this.onMapTap,
   });
 
   final LatLng center;
   final List<SfaMapMarker> markers;
   final List<LatLng> route;
   final double zoom;
+  final ValueChanged<LatLng>? onMapTap;
 
   @override
   Widget build(BuildContext context) => ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: Stack(children: [
           FlutterMap(
-            options: MapOptions(initialCenter: center, initialZoom: zoom),
+            options: MapOptions(
+              initialCenter: center,
+              initialZoom: zoom,
+              onTap: onMapTap == null ? null : (_, point) => onMapTap!(point),
+            ),
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',

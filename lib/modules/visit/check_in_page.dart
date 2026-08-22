@@ -19,10 +19,16 @@ import '../../data/models/visit_model.dart';
 import '../../data/repositories/visit_timeline_repository.dart';
 
 class CheckInPage extends StatefulWidget {
-  const CheckInPage({super.key, required this.outlet, this.plannedVisitId});
+  const CheckInPage({
+    super.key,
+    required this.outlet,
+    this.plannedVisitId,
+    this.isRequired = true,
+  });
 
   final OutletModel outlet;
   final String? plannedVisitId;
+  final bool isRequired;
 
   @override
   State<CheckInPage> createState() => _CheckInPageState();
@@ -55,6 +61,7 @@ class _CheckInPageState extends State<CheckInPage> {
   }
 
   bool get _isWithinRadius => _location != null && _distanceMeters <= _allowedRadiusMeters;
+  bool get _requiresOverrideApproval => widget.isRequired && !_isWithinRadius;
 
   @override
   void initState() {
@@ -95,7 +102,7 @@ class _CheckInPageState extends State<CheckInPage> {
       SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'GPS diperlukan', message: _locationError ?? 'Ambil lokasi terlebih dahulu.');
       return;
     }
-    if (!_isWithinRadius && _overrideReason == null) {
+    if (_requiresOverrideApproval && _overrideReason == null) {
       await _requestOutOfRadiusOverride();
       if (_overrideReason == null) return;
     }
@@ -105,7 +112,7 @@ class _CheckInPageState extends State<CheckInPage> {
     }
 
     final location = _location!;
-    final isOverride = !_isWithinRadius;
+    final isOverride = _requiresOverrideApproval;
     setState(() => _isSubmitting = true);
 
     try {
@@ -118,6 +125,7 @@ class _CheckInPageState extends State<CheckInPage> {
         salesName: 'Sales',
         createdAt: DateTime.now(),
         outletId: widget.outlet.id,
+        isRequired: widget.isRequired,
       );
 
       await _localVisits.addVisit(visit);
@@ -135,17 +143,18 @@ class _CheckInPageState extends State<CheckInPage> {
           'attachmentIdempotencyKey': uuid.v4(),
           'location': location.toJson(),
           'distanceMeters': _distanceMeters,
+          'isRequired': widget.isRequired,
           if (isOverride) 'outOfRadiusOverride': {'reason': _overrideReason, 'requestedAt': DateTime.now().toUtc().toIso8601String()},
         },
       );
       // Backend membuat Approval secara atomik setelah check-in (beserta
       // pemeriksaan radius). Jangan antrekan endpoint approval terpisah,
       // karena keputusan harus selalu terkait visit yang sudah tersimpan.
-      await VisitTimelineRepository().record(outletId: widget.outlet.id, visitId: visit.id, activity: 'check_in', description: isOverride ? 'Check-in di luar radius menunggu approval' : 'Check-in outlet', location: location.toJson());
+      await VisitTimelineRepository().record(outletId: widget.outlet.id, visitId: visit.id, activity: 'check_in', description: isOverride ? 'Check-in wajib di luar radius menunggu approval' : (!_isWithinRadius ? 'Check-in kunjungan tidak wajib di luar radius' : 'Check-in outlet'), location: location.toJson());
 
       if (!mounted) return;
       Get.back(result: visit);
-      await SfaFeedbackDialog.show(type: isOverride ? SfaFeedbackType.approval : SfaFeedbackType.success, title: isOverride ? 'Override diajukan' : 'Check-in berhasil', message: isOverride ? 'Check-in di luar radius menunggu approval.' : 'Kunjungan outlet dimulai dan akan disinkronkan saat online.');
+      await SfaFeedbackDialog.show(type: isOverride ? SfaFeedbackType.approval : SfaFeedbackType.success, title: isOverride ? 'Override diajukan' : 'Check-in berhasil', message: isOverride ? 'Check-in wajib di luar radius menunggu approval.' : (!_isWithinRadius ? 'Kunjungan tidak wajib di luar radius berhasil dimulai.' : 'Kunjungan outlet dimulai dan akan disinkronkan saat online.'));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -218,7 +227,7 @@ class _CheckInPageState extends State<CheckInPage> {
               onPressed: _isSubmitting ? null : _submit,
               child: _isSubmitting
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : Text(_isWithinRadius ? 'Check-in' : 'Ajukan Override Check-in'),
+                  : Text(_requiresOverrideApproval ? 'Ajukan Override Check-in' : 'Check-in'),
             ),
           ],
         ),

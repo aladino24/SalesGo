@@ -4,6 +4,8 @@ import 'package:latlong2/latlong.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_open_street_map.dart';
+import '../../core/auth/app_roles.dart';
+import '../../core/auth/session_service.dart';
 import '../../core/location/location_service.dart';
 import '../../app/widgets/sfa_ui.dart';
 import '../../data/models/outlet_model.dart';
@@ -16,6 +18,10 @@ class OutletPage extends GetView<OutletController> {
 
   @override
   Widget build(BuildContext context) {
+    final role = Get.isRegistered<SessionService>()
+        ? Get.find<SessionService>().currentRole.value
+        : null;
+    final canRequestNewOutlet = role?.canRequestNewOutlet ?? false;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FB),
       appBar: AppBar(
@@ -26,11 +32,13 @@ class OutletPage extends GetView<OutletController> {
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Get.to(() => const NewOutletPage()),
-        icon: const Icon(Icons.add_business_rounded),
-        label: const Text('Outlet Baru'),
-      ),
+      floatingActionButton: canRequestNewOutlet
+          ? FloatingActionButton.extended(
+              onPressed: () => Get.to(() => const NewOutletPage()),
+              icon: const Icon(Icons.add_business_rounded),
+              label: const Text('Tambah Outlet'),
+            )
+          : null,
       body: SafeArea(
         child: Column(
           children: [

@@ -23,6 +23,7 @@ class VisitPage extends GetView<VisitController> {
           return OutletDetailPage(
             outlet: _outletFor(active),
             plannedVisitId: active.id,
+            isRequired: active.isRequired,
           );
         }
         return Scaffold(
@@ -193,7 +194,11 @@ class _VisitRouteCard extends StatelessWidget {
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () => Get.to(() => OutletDetailPage(outlet: _outletFor(visit), plannedVisitId: visit.id)),
+        onTap: () => Get.to(() => OutletDetailPage(
+          outlet: _outletFor(visit),
+          plannedVisitId: visit.id,
+          isRequired: visit.isRequired,
+        )),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(children: [
