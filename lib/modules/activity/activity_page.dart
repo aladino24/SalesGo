@@ -26,7 +26,9 @@ class _ActivityPageState extends State<ActivityPage> {
 
   Future<void> _refresh() async {
     final future = _load();
-    setState(() => _future = future);
+    setState(() {
+      _future = future;
+    });
     await future;
   }
 
