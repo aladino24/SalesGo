@@ -9,6 +9,11 @@ class VisitModel {
     this.outletId,
     this.latitude,
     this.longitude,
+    this.journeyId,
+    this.isRequired = true,
+    this.plannedFor,
+    this.outletAddress,
+    this.outletCode,
   });
 
   final String id;
@@ -20,6 +25,8 @@ class VisitModel {
   final String? outletId;
   final double? latitude;
   final double? longitude;
+  final String? journeyId, plannedFor, outletAddress, outletCode;
+  final bool isRequired;
 
   factory VisitModel.fromJson(Map<String, dynamic> json) {
     return VisitModel(
@@ -32,6 +39,11 @@ class VisitModel {
       outletId: json['outletId']?.toString(),
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
+      journeyId: json['journeyId']?.toString(),
+      isRequired: json['isRequired'] as bool? ?? true,
+      plannedFor: json['plannedFor']?.toString(),
+      outletAddress: json['outletAddress']?.toString(),
+      outletCode: json['outletCode']?.toString(),
     );
   }
 
@@ -45,6 +57,11 @@ class VisitModel {
         if (outletId != null) 'outletId': outletId,
         if (latitude != null) 'latitude': latitude,
         if (longitude != null) 'longitude': longitude,
+        if (journeyId != null) 'journeyId': journeyId,
+        'isRequired': isRequired,
+        if (plannedFor != null) 'plannedFor': plannedFor,
+        if (outletAddress != null) 'outletAddress': outletAddress,
+        if (outletCode != null) 'outletCode': outletCode,
       };
 
   VisitModel copyWith({
@@ -57,6 +74,8 @@ class VisitModel {
     String? outletId,
     double? latitude,
     double? longitude,
+    String? journeyId, plannedFor, outletAddress, outletCode,
+    bool? isRequired,
   }) {
     return VisitModel(
       id: id ?? this.id,
@@ -68,6 +87,11 @@ class VisitModel {
       outletId: outletId ?? this.outletId,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+      journeyId: journeyId ?? this.journeyId,
+      isRequired: isRequired ?? this.isRequired,
+      plannedFor: plannedFor ?? this.plannedFor,
+      outletAddress: outletAddress ?? this.outletAddress,
+      outletCode: outletCode ?? this.outletCode,
     );
   }
 }

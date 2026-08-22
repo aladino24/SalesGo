@@ -11,6 +11,17 @@ class JourneyPage extends GetView<JourneyController> {
 
   Future<void> _createJourney(BuildContext context, bool outOfTown) async {
     final destination = TextEditingController();
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDateRange: DateTimeRange(start: DateTime.now(), end: DateTime.now()),
+      helpText: 'Pilih rentang perjalanan',
+    );
+    if (range == null) {
+      destination.dispose();
+      return;
+    }
     final result = await Get.dialog<bool>(AlertDialog(
       title: Text(outOfTown ? 'Perjalanan Luar Kota' : 'Perjalanan Dalam Kota'),
       content: TextField(
@@ -27,7 +38,7 @@ class JourneyPage extends GetView<JourneyController> {
       final now = DateTime.now();
       await controller.create(JourneyModel(
         id: uuid.v4(), type: outOfTown ? 'out_of_town' : 'in_city',
-        destination: destination.text.trim(), startAt: now, endAt: now,
+        destination: destination.text.trim(), startAt: range.start, endAt: outOfTown ? range.end : range.start,
         status: 'Planned', createdAt: now,
       ));
     }
@@ -60,14 +71,17 @@ class JourneyPage extends GetView<JourneyController> {
               leading: const CircleAvatar(child: Icon(Icons.route_rounded)),
               title: Text(item.destination, style: const TextStyle(fontWeight: FontWeight.w800)),
               subtitle: Text('${item.type == 'out_of_town' ? 'Luar kota' : 'Dalam kota'} • ${item.approvalStatus}'),
-              trailing: item.status == 'Planned'
-                  ? FilledButton(
-                      onPressed: item.type == 'out_of_town' && item.approvalStatus != 'Approved' ? null : () => controller.changeStatus(item, 'Active'),
-                      child: const Text('Mulai'),
-                    )
-                  : item.status == 'Active'
-                      ? FilledButton(onPressed: () => controller.changeStatus(item, 'Completed'), child: const Text('Selesai'))
-                      : SfaStatusChip(label: item.status),
+              trailing: SizedBox(
+                width: 82,
+                child: item.status == 'Planned'
+                    ? FilledButton(
+                        onPressed: item.type == 'out_of_town' && item.approvalStatus != 'Approved' ? null : () => controller.start(item),
+                        child: const Text('Mulai'),
+                      )
+                    : item.status == 'Active'
+                        ? FilledButton(onPressed: () => controller.changeStatus(item, 'Completed'), child: const Text('Selesai'))
+                        : Center(child: SfaStatusChip(label: item.status)),
+              ),
             ));
           },
         ),

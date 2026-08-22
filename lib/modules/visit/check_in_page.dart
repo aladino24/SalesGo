@@ -19,9 +19,10 @@ import '../../data/models/visit_model.dart';
 import '../../data/repositories/visit_timeline_repository.dart';
 
 class CheckInPage extends StatefulWidget {
-  const CheckInPage({super.key, required this.outlet});
+  const CheckInPage({super.key, required this.outlet, this.plannedVisitId});
 
   final OutletModel outlet;
+  final String? plannedVisitId;
 
   @override
   State<CheckInPage> createState() => _CheckInPageState();
@@ -110,7 +111,7 @@ class _CheckInPageState extends State<CheckInPage> {
     try {
       const uuid = Uuid();
       final visit = VisitModel(
-        id: 'VIS-${uuid.v4()}',
+        id: widget.plannedVisitId ?? 'VIS-${uuid.v4()}',
         outletName: widget.outlet.name,
         status: isOverride ? 'Pending' : 'In Progress',
         distanceKm: _distanceMeters / 1000,

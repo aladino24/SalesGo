@@ -29,8 +29,9 @@ enum _DetailMenuAction {
 }
 
 class OutletDetailPage extends StatefulWidget {
-  const OutletDetailPage({super.key, required this.outlet});
+  const OutletDetailPage({super.key, required this.outlet, this.plannedVisitId});
   final OutletModel outlet;
+  final String? plannedVisitId;
 
   @override
   State<OutletDetailPage> createState() => _OutletDetailPageState();
@@ -56,7 +57,9 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
+    return WillPopScope(
+      onWillPop: () async => _activeVisitId == null,
+      child: DefaultTabController(
       length: 4,
       child: Scaffold(
         appBar: AppBar(
@@ -151,7 +154,7 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
                   onPressed: _activeVisitId == null
                       ? () async {
                           final route = Get.to<VisitModel>(
-                            () => CheckInPage(outlet: outlet),
+                            () => CheckInPage(outlet: outlet, plannedVisitId: widget.plannedVisitId),
                           );
                           if (route == null) return;
                           final visit = await route;
@@ -169,7 +172,7 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
           ),
         ),
       ),
-    );
+    ));
   }
 
   void _openMenuAction(_DetailMenuAction action) {
@@ -199,22 +202,24 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
         );
         break;
       case _DetailMenuAction.defer:
-        Get.to(
-          () => VisitActionPage(outlet: outlet, action: VisitActionType.defer),
-        );
+        _openVisitAction(VisitActionType.defer);
         break;
       case _DetailMenuAction.cancel:
-        Get.to(
-          () => VisitActionPage(outlet: outlet, action: VisitActionType.cancel),
-        );
+        _openVisitAction(VisitActionType.cancel);
         break;
       case _DetailMenuAction.approval:
-        Get.to(
-          () =>
-              VisitActionPage(outlet: outlet, action: VisitActionType.approval),
-        );
+        _openVisitAction(VisitActionType.approval);
         break;
     }
+  }
+
+  Future<void> _openVisitAction(VisitActionType action) async {
+    if (_activeVisitId == null) {
+      await SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'Belum check-in', message: 'Tunda atau batalkan hanya tersedia saat kunjungan aktif.');
+      return;
+    }
+    final done = await Get.to<bool>(() => VisitActionPage(outlet: outlet, action: action, visitId: _activeVisitId!));
+    if (done == true && mounted) setState(() => _activeVisitId = null);
   }
 }
 

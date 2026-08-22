@@ -54,22 +54,23 @@ class _RouteList extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Obx(() {
         if (controller.isLoading.value) return const Center(child: CircularProgressIndicator());
-        final visits = _routeVisits(controller.visits);
+        final visits = _routeVisits(controller.visits).where((item) => item.isRequired == controller.requiredOnly.value).toList();
         return ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 2, 16, 24),
-          itemCount: visits.length + 2,
+          itemCount: visits.length + 3,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
-            if (index == 0) return _RouteSummary(visits: visits);
-            if (index == visits.length + 1) {
+            if (index == 0) return SegmentedButton<bool>(segments: const [ButtonSegment(value: true, label: Text('Wajib')), ButtonSegment(value: false, label: Text('Tidak Wajib'))], selected: {controller.requiredOnly.value}, onSelectionChanged: (value) => controller.requiredOnly.value = value.first);
+            if (index == 1) return _RouteSummary(visits: visits);
+            if (index == visits.length + 2) {
               return OutlinedButton.icon(
                 onPressed: () => _showRouteMap(context),
                 icon: const Icon(Icons.alt_route_rounded),
                 label: const Text('Lihat Peta Rute'),
               );
             }
-            final visit = visits[index - 1];
-            return _VisitRouteCard(index: index, visit: visit);
+            final visit = visits[index - 2];
+            return _VisitRouteCard(index: index - 1, visit: visit);
           },
         );
       });
@@ -78,7 +79,7 @@ class _RouteList extends StatelessWidget {
 List<VisitModel> _routeVisits(List<VisitModel> source) {
   final today = DateTime.now();
   return source.where((item) {
-    final date = item.createdAt.toLocal();
+    final date = DateTime.tryParse(item.plannedFor ?? '')?.toLocal() ?? item.createdAt.toLocal();
     return date.year == today.year && date.month == today.month && date.day == today.day;
   }).toList();
 }
@@ -130,7 +131,7 @@ class _VisitRouteCard extends StatelessWidget {
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () => Get.to(() => OutletDetailPage(outlet: _outletFor(visit))),
+        onTap: () => Get.to(() => OutletDetailPage(outlet: _outletFor(visit), plannedVisitId: visit.id)),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(children: [
@@ -211,5 +212,5 @@ class _MapPlaceholder extends StatelessWidget {
   }
 }
 
-OutletModel _outletFor(VisitModel visit) => OutletModel(id: 'OUT-${visit.id}', name: visit.outletName, code: 'OTL-001', address: 'Jl. Melati No. 12, Surabaya', type: 'Grosir', latitude: -7.2575, longitude: 112.7521, salesResponsible: visit.salesName, status: visit.status);
+OutletModel _outletFor(VisitModel visit) => OutletModel(id: visit.outletId ?? visit.id, name: visit.outletName, code: visit.outletCode ?? '-', address: visit.outletAddress ?? 'Alamat belum tersedia', type: 'Outlet', latitude: visit.latitude ?? 0, longitude: visit.longitude ?? 0, salesResponsible: visit.salesName, status: visit.status);
 void _showRouteMap(BuildContext context) => DefaultTabController.of(context).animateTo(2);
