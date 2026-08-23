@@ -91,12 +91,46 @@ class _MapMarker extends StatelessWidget {
   @override
   Widget build(BuildContext context) => GestureDetector(
         onTap: marker.onTap,
-        child: Container(
-          alignment: Alignment.center,
-          decoration: BoxDecoration(color: marker.color, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 3), boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 5)]),
-          child: marker.isCurrentLocation
-              ? const Icon(Icons.my_location_rounded, color: Colors.white, size: 19)
-              : Text(marker.label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
-        ),
+        child: marker.isCurrentLocation
+            ? Container(
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: marker.color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 3),
+                  boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 5)],
+                ),
+                child: const Icon(
+                  Icons.my_location_rounded,
+                  color: Colors.white,
+                  size: 19,
+                ),
+              )
+            : Stack(
+                alignment: Alignment.topCenter,
+                children: [
+                  Image.asset(
+                    'assets/images/icon/gps.png',
+                    width: 34,
+                    height: 34,
+                    fit: BoxFit.contain,
+                  ),
+                  if (marker.label.isNotEmpty)
+                    Positioned(
+                      top: 7,
+                      child: Text(
+                        marker.label,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          shadows: [
+                            Shadow(color: Colors.black45, blurRadius: 2),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
       );
 }

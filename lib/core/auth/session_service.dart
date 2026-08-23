@@ -10,12 +10,16 @@ import '../../data/models/auth_session_model.dart';
 class SessionService extends GetxService {
   static const _keyUserRole = 'user_role';
   static const _keyUserName = 'user_name';
+  static const _keyUserId = 'user_id';
+  static const _keyEmployeeCode = 'employee_code';
   static const _keyAccessToken = 'access_token';
   static const _keyRefreshToken = 'refresh_token';
   static const _keyExpiresAt = 'expires_at';
 
   final Rx<AppRole?> currentRole = Rx<AppRole?>(null);
   final RxString userName = ''.obs;
+  final RxString userId = ''.obs;
+  final RxString employeeCode = ''.obs;
   final RxString accessToken = ''.obs;
   final RxString refreshToken = ''.obs;
   final Rx<DateTime?> expiresAt = Rx<DateTime?>(null);
@@ -46,6 +50,8 @@ class SessionService extends GetxService {
     }
 
     userName.value = savedName ?? 'Sales';
+    userId.value = await LocalStorage.readSession(_keyUserId) ?? '';
+    employeeCode.value = await LocalStorage.readSession(_keyEmployeeCode) ?? '';
     accessToken.value = savedAccessToken ?? '';
     refreshToken.value = await LocalStorage.readSession(_keyRefreshToken) ?? '';
     final savedExpiry = await LocalStorage.readSession(_keyExpiresAt);
@@ -57,12 +63,24 @@ class SessionService extends GetxService {
   Future<void> saveSession(AuthSessionModel session) async {
     currentRole.value = session.role;
     userName.value = session.userName;
+    userId.value = session.userId ?? '';
+    employeeCode.value = session.employeeCode ?? '';
     accessToken.value = session.accessToken;
     refreshToken.value = session.refreshToken ?? '';
     expiresAt.value = session.expiresAt;
     _scheduleExpiry();
     await LocalStorage.saveSession(_keyUserRole, session.role.name);
     await LocalStorage.saveSession(_keyUserName, session.userName);
+    if (session.userId != null) {
+      await LocalStorage.saveSession(_keyUserId, session.userId!);
+    } else {
+      await LocalStorage.deleteSession(_keyUserId);
+    }
+    if (session.employeeCode != null) {
+      await LocalStorage.saveSession(_keyEmployeeCode, session.employeeCode!);
+    } else {
+      await LocalStorage.deleteSession(_keyEmployeeCode);
+    }
     await LocalStorage.saveSession(_keyAccessToken, session.accessToken);
     if (session.refreshToken != null) await LocalStorage.saveSession(_keyRefreshToken, session.refreshToken!);
     if (session.expiresAt != null) await LocalStorage.saveSession(_keyExpiresAt, session.expiresAt!.toIso8601String());
@@ -72,11 +90,15 @@ class SessionService extends GetxService {
     _expiryTimer?.cancel();
     currentRole.value = null;
     userName.value = '';
+    userId.value = '';
+    employeeCode.value = '';
     accessToken.value = '';
     refreshToken.value = '';
     expiresAt.value = null;
     await LocalStorage.deleteSession(_keyUserRole);
     await LocalStorage.deleteSession(_keyUserName);
+    await LocalStorage.deleteSession(_keyUserId);
+    await LocalStorage.deleteSession(_keyEmployeeCode);
     await LocalStorage.deleteSession(_keyAccessToken);
     await LocalStorage.deleteSession(_keyRefreshToken);
     await LocalStorage.deleteSession(_keyExpiresAt);

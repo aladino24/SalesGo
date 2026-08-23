@@ -47,6 +47,7 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
   static const _cacheBoxName = 'route_master_cache';
 
   AppRole? get _role => Get.find<SessionService>().currentRole.value;
+  SessionService get _session => Get.find<SessionService>();
 
   @override
   void initState() {
@@ -99,6 +100,7 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
           .values
               .toList();
         }
+        _includeCurrentBranchManager();
       }
       await cache.put('records', _records);
       await cache.put('sales', _sales);
@@ -135,8 +137,25 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
     _sales = sales is List
         ? sales.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList()
         : <Map<String, dynamic>>[];
+    _includeCurrentBranchManager();
     _drafts.clear();
     _page = 0;
+  }
+
+  /// Endpoint daftar sales pada backend lama hanya mengembalikan Sales/SPV.
+  /// Branch Manager tetap diizinkan backend untuk memiliki rute dirinya, jadi
+  /// masukkan identitas sesi sebagai opsi lokal tanpa mengubah data sales lain.
+  void _includeCurrentBranchManager() {
+    if (_role != AppRole.branchManager || _session.userId.value.isEmpty) return;
+    if (_sales.any((item) => item['id']?.toString() == _session.userId.value)) {
+      return;
+    }
+    _sales.insert(0, {
+      'id': _session.userId.value,
+      'name': _session.userName.value,
+      'employeeCode': _session.employeeCode.value,
+      'role': 'branchManager',
+    });
   }
 
   Future<void> _add() async {

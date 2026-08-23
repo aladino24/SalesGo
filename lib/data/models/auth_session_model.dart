@@ -6,6 +6,8 @@ class AuthSessionModel {
     required this.refreshToken,
     required this.userName,
     required this.role,
+    this.userId,
+    this.employeeCode,
     this.expiresAt,
   });
 
@@ -13,6 +15,8 @@ class AuthSessionModel {
   final String? refreshToken;
   final String userName;
   final AppRole role;
+  final String? userId;
+  final String? employeeCode;
   final DateTime? expiresAt;
 
   factory AuthSessionModel.fromJson(Map<String, dynamic> json) {
@@ -22,6 +26,8 @@ class AuthSessionModel {
       accessToken: (json['accessToken'] ?? json['token'] ?? '').toString(),
       refreshToken: json['refreshToken']?.toString(),
       userName: (user['name'] ?? user['username'] ?? '').toString(),
+      userId: user['id']?.toString(),
+      employeeCode: user['employeeCode']?.toString(),
       role: AppRole.values.firstWhere(
         (role) => role.name.toLowerCase() == roleName.toLowerCase(),
         orElse: () => AppRole.sales,

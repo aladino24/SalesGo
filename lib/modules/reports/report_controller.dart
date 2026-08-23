@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -71,6 +72,15 @@ class ReportController extends GetxController {
     );
     final bytes = response.data ?? const <int>[];
     if (bytes.isEmpty) throw StateError('Server mengirim CSV kosong.');
+    final content = utf8.decode(bytes, allowMalformed: true).replaceFirst('\uFEFF', '').trim();
+    final rows = content.split(RegExp(r'\r?\n'));
+    if (rows.length <= 1) {
+      throw StateError(
+        'Belum ada kunjungan tersimpan di server untuk cabang ini. '
+        'Master rute bukan riwayat kunjungan; data laporan akan tersedia '
+        'setelah sales memulai perjalanan atau melakukan kunjungan.',
+      );
+    }
     await file.writeAsBytes(bytes, flush: true);
     return file.path;
   }

@@ -100,7 +100,7 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
         body: SafeArea(
           // Detail dari Data Master bersifat read-only. Telepon tetap tersedia
           // karena tidak mengubah lifecycle kunjungan maupun data outlet.
-          child: _OverviewTab(outlet: outlet),
+          child: _OverviewTab(outlet: outlet, showQuickActions: false),
         ),
       );
     }
@@ -333,9 +333,14 @@ class _VisitBanner extends StatelessWidget {
 }
 
 class _OverviewTab extends StatelessWidget {
-  const _OverviewTab({required this.outlet, this.showPhoneAction = true});
+  const _OverviewTab({
+    required this.outlet,
+    this.showPhoneAction = true,
+    this.showQuickActions = true,
+  });
   final OutletModel outlet;
   final bool showPhoneAction;
+  final bool showQuickActions;
   @override
   Widget build(BuildContext context) => FutureBuilder<OutletPerformanceModel>(
     future: OutletDetailRepository().getPerformance(outlet.id),
@@ -463,6 +468,7 @@ class _OverviewTab extends StatelessWidget {
             icon: Icons.lightbulb_outline_rounded,
             color: AppColors.primary,
           ),
+          if (showQuickActions) ...[
           const SizedBox(height: 20),
           const SfaSectionTitle(title: 'Aksi Cepat'),
           const SizedBox(height: 8),
@@ -520,6 +526,7 @@ class _OverviewTab extends StatelessWidget {
               ),
             ],
           ),
+          ],
         ],
       );
     },
