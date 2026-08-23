@@ -41,6 +41,34 @@ class JourneyRepository {
     return _sorted(items);
   }
 
+  /// Mengakhiri perjalanan aktif yang periodenya sudah lewat berdasarkan
+  /// tanggal perangkat. Visit wajib hanya boleh hidup selama periode ini.
+  Future<JourneyModel?> activeJourneyForToday() async {
+    final journeys = await all();
+    final today = _dateOnly(DateTime.now());
+    JourneyModel? active;
+
+    for (final journey in journeys.where((item) => item.status == 'Active')) {
+      final startsAt = _dateOnly(journey.startAt);
+      final endsAt = _dateOnly(journey.endAt);
+      if (today.isBefore(startsAt) || today.isAfter(endsAt)) {
+        try {
+          await updateStatus(journey, 'Completed');
+        } catch (_) {
+          // Status lokal telah diperbarui terlebih dahulu oleh repository.
+          // Bila offline, antrean sync akan mengirim penutupan saat tersedia.
+        }
+        continue;
+      }
+      active ??= journey;
+    }
+
+    return active;
+  }
+
+  DateTime _dateOnly(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
+
   Future<JourneyModel> create(JourneyModel item) async {
     await (await _box).put(item.id, item.toJson());
     const uuid = Uuid();

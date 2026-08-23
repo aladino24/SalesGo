@@ -39,6 +39,27 @@ class ServerStateRestoreService {
       restoredRecords += await _replaceBox(entry.value, values);
     }
 
+    // Master rute bukan bagian dari snapshot lifecycle transaksi. Ambil
+    // terpisah agar kunjungan tidak wajib tetap tersedia setelah pemulihan
+    // state atau saat cache lokal sebelumnya hilang.
+    try {
+      final routes = await _apiClient.get<List<dynamic>>(
+        ApiEndpoints.routeAssignments,
+      );
+      final box = Hive.isBoxOpen('route_master_cache')
+          ? Hive.box('route_master_cache')
+          : await Hive.openBox('route_master_cache');
+      final records = routes
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+      await box.put('records', records);
+      restoredRecords += records.length;
+    } catch (_) {
+      // Snapshot utama tetap sah apabila endpoint master rute sedang gagal.
+      // Cache lama tidak dihapus agar mode offline tetap dapat digunakan.
+    }
+
     final dashboard = response['dashboard'];
     if (dashboard is Map) {
       final box = Hive.isBoxOpen('dashboard_cache')

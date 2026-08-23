@@ -1,21 +1,28 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../core/network/network_info.dart';
 import '../../core/location/location_service.dart';
 import '../../core/location/route_estimate_service.dart';
 import '../../data/models/visit_model.dart';
+import '../../data/models/journey_model.dart';
 import '../../data/repositories/visit_repository.dart';
+import '../../data/repositories/journey_repository.dart';
+import '../../core/auth/session_service.dart';
 
-class VisitController extends GetxController {
-  VisitController({VisitRepository? repository, NetworkInfo? networkInfo, LocationService? locationService, RouteEstimateService? routeService})
+class VisitController extends GetxController with WidgetsBindingObserver {
+  VisitController({VisitRepository? repository, JourneyRepository? journeyRepository, NetworkInfo? networkInfo, LocationService? locationService, RouteEstimateService? routeService})
       : _repository = repository ?? VisitRepository(),
+        _journeyRepository = journeyRepository ?? JourneyRepository(),
         _networkInfo = networkInfo ?? Get.find<NetworkInfo>(),
         _locationService = locationService ?? LocationService(),
         _routeService = routeService ?? RouteEstimateService();
 
   final VisitRepository _repository;
+  final JourneyRepository _journeyRepository;
   final NetworkInfo _networkInfo;
   final LocationService _locationService;
   final RouteEstimateService _routeService;
@@ -23,6 +30,8 @@ class VisitController extends GetxController {
   final RxString status = 'Planned'.obs;
   final RxInt totalOutlet = 0.obs;
   final RxList<VisitModel> visits = <VisitModel>[].obs;
+  final RxList<VisitModel> optionalRouteVisits = <VisitModel>[].obs;
+  final Rxn<JourneyModel> activeJourney = Rxn<JourneyModel>();
   final Rxn<VisitModel> activeVisit = Rxn<VisitModel>();
   final RxBool isLoading = false.obs;
   final Rxn<LocationSnapshot> currentLocation = Rxn<LocationSnapshot>();
@@ -32,6 +41,8 @@ class VisitController extends GetxController {
   final RxBool isStartingJourney = false.obs;
   final RxDouble journeyStartProgress = 0.0.obs;
   final RxString journeyStartLabel = ''.obs;
+  Timer? _calendarWatcher;
+  String _calendarDay = '';
 
   void selectVisitCategory(bool value) => requiredOnly.value = value;
 
@@ -40,16 +51,42 @@ class VisitController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _calendarDay = _todayKey();
+    WidgetsBinding.instance.addObserver(this);
     loadVisits();
+    _calendarWatcher = Timer.periodic(const Duration(minutes: 1), (_) {
+      final day = _todayKey();
+      if (day == _calendarDay) return;
+      _calendarDay = day;
+      unawaited(loadVisits());
+    });
+  }
+
+  @override
+  void onClose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _calendarWatcher?.cancel();
+    super.onClose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    final day = _todayKey();
+    if (day == _calendarDay) return;
+    _calendarDay = day;
+    unawaited(loadVisits());
   }
 
   Future<void> loadVisits() async {
     isLoading.value = true;
     try {
+      activeJourney.value = await _journeyRepository.activeJourneyForToday();
       final data = await _repository.getVisits(isOnline: await _networkInfo.isConnected);
       visits.assignAll(data);
+      optionalRouteVisits.assignAll(await _loadOptionalRouteVisits(data));
       activeVisit.value = _findActive(data);
-      totalOutlet.value = data.length;
+      totalOutlet.value = requiredTodayVisits.length + optionalRouteVisits.length;
     } finally {
       isLoading.value = false;
     }
@@ -62,7 +99,10 @@ class VisitController extends GetxController {
       routeEstimates.clear();
       final location = await _locationService.currentLocation();
       currentLocation.value = location;
-      final routeVisits = visits.where((visit) => visit.latitude != null && visit.longitude != null && visit.status != 'Completed').toList();
+      final routeVisits = [
+        ...requiredTodayVisits,
+        ...optionalRouteVisits,
+      ].where((visit) => visit.latitude != null && visit.longitude != null && visit.status != 'Completed').toList();
       for (final visit in routeVisits) {
         routeEstimates[visit.id] = await _routeService.estimate(origin: location, destinationLatitude: visit.latitude!, destinationLongitude: visit.longitude!);
       }
@@ -123,6 +163,103 @@ class VisitController extends GetxController {
     final index = visits.indexWhere((item) => item.id == visitId);
     if (index >= 0) visits[index] = visits[index].copyWith(status: status);
     if (activeVisit.value?.id == visitId) activeVisit.value = null;
+  }
+
+  List<VisitModel> get requiredTodayVisits {
+    final journey = activeJourney.value;
+    if (journey == null) return const <VisitModel>[];
+    return visits.where((visit) {
+      if (!visit.isRequired || !_isToday(visit)) return false;
+      return visit.journeyId == journey.id || visit.journeyId == journey.serverId;
+    }).toList();
+  }
+
+  List<VisitModel> get currentCategoryVisits =>
+      requiredOnly.value ? requiredTodayVisits : optionalRouteVisits;
+
+  bool _isToday(VisitModel visit) {
+    final date = DateTime.tryParse(visit.plannedFor ?? '')?.toLocal() ??
+        visit.createdAt.toLocal();
+    final today = DateTime.now();
+    return date.year == today.year &&
+        date.month == today.month &&
+        date.day == today.day;
+  }
+
+  String _todayKey() {
+    final today = DateTime.now();
+    return '${today.year}-${today.month}-${today.day}';
+  }
+
+  Future<List<VisitModel>> _loadOptionalRouteVisits(
+    List<VisitModel> existingVisits,
+  ) async {
+    final box = Hive.isBoxOpen('route_master_cache')
+        ? Hive.box('route_master_cache')
+        : await Hive.openBox('route_master_cache');
+    final records = box.get('records');
+    final requiredOutletIds = requiredTodayVisits
+        .map((visit) => visit.outletId ?? '')
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final today = DateTime.now();
+    final dateKey =
+        '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    final currentUserId = Get.find<SessionService>().userId.value;
+    final result = <String, VisitModel>{};
+
+    if (records is List) {
+      for (final raw in records.whereType<Map>()) {
+        final record = Map<String, dynamic>.from(raw);
+        final outletRaw = record['outlet'];
+        if (outletRaw is! Map) continue;
+        if (currentUserId.isNotEmpty &&
+            record['salesId']?.toString() != currentUserId) {
+          continue;
+        }
+        final outlet = Map<String, dynamic>.from(outletRaw);
+        final outletId = (record['outletId'] ?? outlet['id'])?.toString() ?? '';
+        if (outletId.isEmpty || requiredOutletIds.contains(outletId)) continue;
+        VisitModel? current;
+        for (final visit in existingVisits) {
+          if (!visit.isRequired && visit.outletId == outletId && _isToday(visit)) {
+            current = visit;
+            break;
+          }
+        }
+        result[outletId] = current ?? VisitModel(
+          id: 'ROUTE-$outletId-$dateKey',
+          outletName: outlet['name']?.toString() ?? 'Outlet',
+          status: 'Planned',
+          distanceKm: 0,
+          salesName: Get.find<SessionService>().userName.value,
+          createdAt: today,
+          outletId: outletId,
+          latitude: _number(outlet['latitude']),
+          longitude: _number(outlet['longitude']),
+          isRequired: false,
+          plannedFor: dateKey,
+          outletAddress: outlet['address']?.toString(),
+          outletCode: outlet['code']?.toString(),
+        );
+      }
+    }
+
+    // Cache rute lama atau versi aplikasi sebelumnya mungkin belum tersedia.
+    // Pertahankan kunjungan tidak wajib hari ini sebagai fallback offline.
+    for (final visit in existingVisits.where(
+      (visit) => !visit.isRequired && _isToday(visit),
+    )) {
+      final key = visit.outletId ?? visit.outletName;
+      if (!requiredOutletIds.contains(key)) result.putIfAbsent(key, () => visit);
+    }
+    return result.values.toList()
+      ..sort((a, b) => a.outletName.compareTo(b.outletName));
+  }
+
+  double? _number(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
   }
 
   VisitModel? _findActive(List<VisitModel> items) {

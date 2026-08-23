@@ -97,8 +97,7 @@ class _RouteListState extends State<_RouteList> {
         if (_searchController.text != controller.searchTerm.value) {
           _searchController.value = TextEditingValue(text: controller.searchTerm.value, selection: TextSelection.collapsed(offset: controller.searchTerm.value.length));
         }
-        final visits = _routeVisits(controller.visits)
-            .where((item) => item.isRequired == controller.requiredOnly.value)
+        final visits = controller.currentCategoryVisits
             .where((item) => query.isEmpty || item.outletName.toLowerCase().contains(query) || (item.outletCode ?? '').toLowerCase().contains(query) || (item.outletAddress ?? '').toLowerCase().contains(query))
             .toList();
         return ListView.separated(
@@ -137,14 +136,6 @@ class _RouteListState extends State<_RouteList> {
           },
         );
       });
-}
-
-List<VisitModel> _routeVisits(List<VisitModel> source) {
-  final today = DateTime.now();
-  return source.where((item) {
-    final date = DateTime.tryParse(item.plannedFor ?? '')?.toLocal() ?? item.createdAt.toLocal();
-    return date.year == today.year && date.month == today.month && date.day == today.day;
-  }).toList();
 }
 
 class _RouteSummary extends StatelessWidget {
@@ -243,8 +234,8 @@ class _WeekVisits extends StatelessWidget {
   Widget build(BuildContext context) => Obx(() => ListView(
         padding: const EdgeInsets.fromLTRB(16, 2, 16, 24),
         children: [
-          _WeekSummary(visits: _routeVisits(controller.visits)), const SizedBox(height: 16),
-          ..._routeVisits(controller.visits).map((visit) => Padding(padding: const EdgeInsets.only(bottom: 10), child: _VisitRouteCard(index: _routeVisits(controller.visits).indexOf(visit) + 1, visit: visit))),
+          _WeekSummary(visits: controller.currentCategoryVisits), const SizedBox(height: 16),
+          ...controller.currentCategoryVisits.asMap().entries.map((entry) => Padding(padding: const EdgeInsets.only(bottom: 10), child: _VisitRouteCard(index: entry.key + 1, visit: entry.value))),
         ],
       ));
 }
@@ -257,9 +248,7 @@ class _RouteMap extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Obx(() {
         // Peta mengikuti pilihan Wajib/Tidak Wajib pada tab Hari Ini.
-        final selectedVisits = _routeVisits(controller.visits)
-            .where((visit) => visit.isRequired == controller.requiredOnly.value)
-            .toList();
+        final selectedVisits = controller.currentCategoryVisits;
         final visits = controller.recommendedRoute(selectedVisits);
         final estimates = visits.map((visit) => controller.routeEstimates[visit.id]).whereType<RouteEstimate>().toList();
         final totalDistance = estimates.fold<double>(0, (total, item) => total + item.distanceMeters);
