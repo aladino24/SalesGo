@@ -110,6 +110,11 @@ class SyncManager extends GetxController {
       await SyncStorage.addAudit(item: item, event: 'sync_succeeded');
       await SyncStorage.removeItem(item.id);
     } on ApiException catch (e) {
+      if (item.type == 'journey_status' && e.statusCode == 422) {
+        await SyncStorage.addAudit(item: item, event: 'sync_rejected', message: 'Status perjalanan sudah tidak valid di server; antrean dihapus.');
+        await SyncStorage.removeItem(item.id);
+        return;
+      }
       if (e.statusCode == 409) {
         await SyncStorage.updateItemStatus(
           item.id,

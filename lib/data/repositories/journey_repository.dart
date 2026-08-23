@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/network_info.dart';
+import '../../core/network/api_exception.dart';
 import '../../core/sync/sync_manager.dart';
 import '../models/journey_model.dart';
 class JourneyRepository {
@@ -96,31 +97,53 @@ class JourneyRepository {
   }
 
   Future<void> updateStatus(JourneyModel item, String status, {String? reason}) async {
-    final updated = item.copyWith(status: status);
+    final resolved = await _resolveServerJourney(item);
+    if (resolved.status == status) {
+      await (await _box).put(item.id, resolved.toJson());
+      return;
+    }
+    if (!_canTransition(resolved.status, status)) {
+      await (await _box).put(item.id, resolved.toJson());
+      throw StateError('Status perjalanan di server sudah ${resolved.status}. Muat ulang perjalanan terlebih dahulu.');
+    }
+    final updated = resolved.copyWith(status: status);
     await (await _box).put(item.id, updated.toJson());
     const uuid = Uuid();
     final idempotencyKey = uuid.v4();
     final payload = {'status': status, if (reason != null && reason.isNotEmpty) 'reason': reason};
-    final journeyId = item.serverId;
+    final journeyId = resolved.serverId;
     if (journeyId == null || journeyId.isEmpty) throw StateError('Perjalanan belum tersinkron ke server.');
     final endpoint = '${ApiEndpoints.journeys}/$journeyId/status';
     if (await _network.isConnected) {
       try {
         final response = await _api.patch<dynamic>(endpoint, data: payload, idempotencyKey: idempotencyKey);
         if (response is Map) await (await _box).put(item.id, JourneyModel.fromJson(Map<String, dynamic>.from(response)).toJson());
-        await _recordActivity(item, status);
+        await _recordActivity(resolved, status);
         return;
-      } catch (_) {}
+      } on ApiException catch (error) {
+        if (error.statusCode == 422) {
+          await _refreshCanonicalJourney(resolved);
+          throw StateError('Status perjalanan sudah berubah di server. Data perjalanan telah diperbarui.');
+        }
+      }
     }
     final operationId = uuid.v4();
     await _sync.queueItem(type: 'journey_status', endpoint: endpoint, method: 'PATCH', payload: payload, uuid: operationId, idempotencyKey: idempotencyKey);
-    await _recordActivity(item, status);
+    await _recordActivity(resolved, status);
   }
 
   Future<void> start(JourneyModel item) async {
     final resolved = await _resolveServerJourney(item);
     final serverId = resolved.serverId;
     if (serverId == null || serverId.isEmpty) throw StateError('Perjalanan belum tersinkron ke server.');
+    if (resolved.status == 'Active') {
+      await (await _box).put(item.id, resolved.toJson());
+      return;
+    }
+    if (resolved.status != 'Planned') {
+      await (await _box).put(item.id, resolved.toJson());
+      throw StateError('Perjalanan tidak dapat dimulai karena status server adalah ${resolved.status}.');
+    }
     const uuid = Uuid();
     final response = await _api.post<dynamic>('${ApiEndpoints.journeys}/$serverId/start', data: const <String, dynamic>{}, idempotencyKey: uuid.v4());
     if (response is Map) await (await _box).put(item.id, JourneyModel.fromJson(Map<String, dynamic>.from(response)).toJson());
@@ -128,19 +151,26 @@ class JourneyRepository {
   }
 
   Future<JourneyModel> _resolveServerJourney(JourneyModel item) async {
-    if (item.serverId != null && item.serverId!.isNotEmpty) return item;
-    if (!await _network.isConnected) return item;
-
-    final response = await _api.get<dynamic>(ApiEndpoints.journeys);
-    if (response is List) {
-      for (final value in response.whereType<Map>()) {
-        final remote = JourneyModel.fromJson(Map<String, dynamic>.from(value));
-        if (remote.id == item.id && remote.serverId != null && remote.serverId!.isNotEmpty) {
-          await (await _box).put(item.id, remote.toJson());
-          return remote;
+    final online = await _network.isConnected;
+    if (online) {
+      try {
+        final response = await _api.get<dynamic>(ApiEndpoints.journeys);
+        if (response is List) {
+          for (final value in response.whereType<Map>()) {
+            final remote = JourneyModel.fromJson(Map<String, dynamic>.from(value));
+            if (remote.id == item.id || (item.serverId != null && remote.serverId == item.serverId)) {
+              await (await _box).put(item.id, remote.toJson());
+              return remote;
+            }
+          }
         }
+      } catch (_) {
+        // Saat koneksi gagal, gunakan status cache dan antrekan bila transisinya valid.
       }
+    } else {
+      return item;
     }
+    if (item.serverId != null && item.serverId!.isNotEmpty) return item;
 
     // Journey dari aplikasi versi sebelumnya mungkin hanya ada di Hive karena
     // respons create gagal/tidak tersimpan. Kirim ulang dengan client ID yang
@@ -163,6 +193,26 @@ class JourneyRepository {
   }
 
   List<JourneyModel> _sorted(List<JourneyModel> items) => items..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+  bool _canTransition(String from, String to) => switch (from) {
+        'Planned' => to == 'Active' || to == 'Cancelled',
+        'Active' => to == 'Completed' || to == 'Cancelled',
+        _ => false,
+      };
+
+  Future<void> _refreshCanonicalJourney(JourneyModel item) async {
+    try {
+      final response = await _api.get<dynamic>(ApiEndpoints.journeys);
+      if (response is! List) return;
+      for (final value in response.whereType<Map>()) {
+        final remote = JourneyModel.fromJson(Map<String, dynamic>.from(value));
+        if (remote.id == item.id || remote.serverId == item.serverId) {
+          await (await _box).put(item.id, remote.toJson());
+          return;
+        }
+      }
+    } catch (_) {}
+  }
 
   Future<void> _recordActivity(JourneyModel item, String status) async {
     if (status != 'Active' && status != 'Completed') return;
