@@ -35,6 +35,13 @@ class MonitoringRepository {
     return cached is List ? cached.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList() : <Map<String, dynamic>>[];
   }
 
+  Future<Map<String, dynamic>> getPaged({
+    required String endpoint,
+    required String cacheKey,
+    required bool online,
+    Map<String, dynamic>? query,
+  }) => get(endpoint: endpoint, cacheKey: cacheKey, online: online, query: query);
+
   Future<Map<String, dynamic>> getReport({required String type, required bool online}) => get(
         endpoint: ApiEndpoints.reportsSummary,
         cacheKey: 'report_$type',

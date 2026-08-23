@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import '../storage/local_storage.dart';
 import 'app_roles.dart';
 import '../../data/models/auth_session_model.dart';
+import '../location/location_tracking_service.dart';
 
 class SessionService extends GetxService {
   static const _keyUserRole = 'user_role';
@@ -84,9 +85,15 @@ class SessionService extends GetxService {
     await LocalStorage.saveSession(_keyAccessToken, session.accessToken);
     if (session.refreshToken != null) await LocalStorage.saveSession(_keyRefreshToken, session.refreshToken!);
     if (session.expiresAt != null) await LocalStorage.saveSession(_keyExpiresAt, session.expiresAt!.toIso8601String());
+    if (Get.isRegistered<LocationTrackingService>()) {
+      unawaited(Get.find<LocationTrackingService>().start());
+    }
   }
 
   Future<void> logout() async {
+    if (Get.isRegistered<LocationTrackingService>()) {
+      await Get.find<LocationTrackingService>().stop();
+    }
     _expiryTimer?.cancel();
     currentRole.value = null;
     userName.value = '';

@@ -9,8 +9,10 @@ import '../../core/location/location_service.dart';
 import '../../core/location/route_estimate_service.dart';
 import '../../data/models/visit_model.dart';
 import '../../data/models/journey_model.dart';
+import '../../data/models/outlet_model.dart';
 import '../../data/repositories/visit_repository.dart';
 import '../../data/repositories/journey_repository.dart';
+import '../../data/repositories/master_repository.dart';
 import '../../core/auth/session_service.dart';
 
 class VisitController extends GetxController with WidgetsBindingObserver {
@@ -198,6 +200,14 @@ class VisitController extends GetxController with WidgetsBindingObserver {
         ? Hive.box('route_master_cache')
         : await Hive.openBox('route_master_cache');
     final records = box.get('records');
+    final masterOutlets =
+        await MasterRepository().getOutlets(isOnline: false);
+    final outletsById = <String, OutletModel>{
+      for (final outlet in masterOutlets) outlet.id: outlet,
+    };
+    final outletsByCode = <String, OutletModel>{
+      for (final outlet in masterOutlets) outlet.code: outlet,
+    };
     final requiredOutletIds = requiredTodayVisits
         .map((visit) => visit.outletId ?? '')
         .where((id) => id.isNotEmpty)
@@ -220,6 +230,8 @@ class VisitController extends GetxController with WidgetsBindingObserver {
         final outlet = Map<String, dynamic>.from(outletRaw);
         final outletId = (record['outletId'] ?? outlet['id'])?.toString() ?? '';
         if (outletId.isEmpty || requiredOutletIds.contains(outletId)) continue;
+        final cachedOutlet = outletsById[outletId] ??
+            outletsByCode[outlet['code']?.toString() ?? ''];
         VisitModel? current;
         for (final visit in existingVisits) {
           if (!visit.isRequired && visit.outletId == outletId && _isToday(visit)) {
@@ -229,18 +241,21 @@ class VisitController extends GetxController with WidgetsBindingObserver {
         }
         result[outletId] = current ?? VisitModel(
           id: 'ROUTE-$outletId-$dateKey',
-          outletName: outlet['name']?.toString() ?? 'Outlet',
+          outletName:
+              outlet['name']?.toString() ?? cachedOutlet?.name ?? 'Outlet',
           status: 'Planned',
           distanceKm: 0,
           salesName: Get.find<SessionService>().userName.value,
           createdAt: today,
           outletId: outletId,
-          latitude: _number(outlet['latitude']),
-          longitude: _number(outlet['longitude']),
+          latitude: _coordinate(outlet['latitude'], cachedOutlet?.latitude),
+          longitude:
+              _coordinate(outlet['longitude'], cachedOutlet?.longitude),
           isRequired: false,
           plannedFor: dateKey,
-          outletAddress: outlet['address']?.toString(),
-          outletCode: outlet['code']?.toString(),
+          outletAddress:
+              outlet['address']?.toString() ?? cachedOutlet?.address,
+          outletCode: outlet['code']?.toString() ?? cachedOutlet?.code,
         );
       }
     }
@@ -260,6 +275,12 @@ class VisitController extends GetxController with WidgetsBindingObserver {
   double? _number(dynamic value) {
     if (value is num) return value.toDouble();
     return double.tryParse(value?.toString() ?? '');
+  }
+
+  double? _coordinate(dynamic value, double? fallback) {
+    final parsed = _number(value);
+    if (parsed == null || !parsed.isFinite) return fallback;
+    return parsed == 0 ? fallback : parsed;
   }
 
   VisitModel? _findActive(List<VisitModel> items) {

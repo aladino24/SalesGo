@@ -284,7 +284,16 @@ class _MapPlaceholder extends StatelessWidget {
               )),
         ],
       ),
-      const Positioned(left: 12, top: 12, child: SfaStatusChip(label: 'Lokasi Anda', color: AppColors.success)),
+      Positioned(
+        left: 12,
+        top: 12,
+        child: SfaStatusChip(
+          label: '${routeVisits.length}/${visits.length} titik outlet',
+          color: routeVisits.length == visits.length
+              ? AppColors.success
+              : AppColors.warning,
+        ),
+      ),
     ]);
   }
 }

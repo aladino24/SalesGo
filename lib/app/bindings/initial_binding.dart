@@ -10,6 +10,7 @@ import '../../core/storage/sync_storage.dart';
 import '../../core/sync/sync_manager.dart';
 import '../../core/sync/server_state_restore_service.dart';
 import '../../core/sync/master_data_download_service.dart';
+import '../../core/location/location_tracking_service.dart';
 import '../../modules/notification/notification_controller.dart';
 
 class InitialBinding extends Bindings {
@@ -48,5 +49,11 @@ class InitialBinding extends Bindings {
       ),
     );
     Get.put<MasterDataDownloadService>(MasterDataDownloadService());
+    Get.put(LocationTrackingService(), permanent: true);
+    if (Get.find<SessionService>().isAuthenticated) {
+      Future<void>.microtask(
+        () => Get.find<LocationTrackingService>().start(),
+      );
+    }
   }
 }
