@@ -367,14 +367,18 @@ class _JourneyCard extends GetView<VisitController> {
   @override
   Widget build(BuildContext context) => Obx(
     () {
-      final today = DateTime.now();
-      final visits = controller.visits.where((visit) {
-        if (!visit.isRequired) return false;
-        final date = DateTime.tryParse(visit.plannedFor ?? '')?.toLocal() ?? visit.createdAt.toLocal();
-        return date.year == today.year &&
-            date.month == today.month &&
-            date.day == today.day;
-      }).toList();
+      // Kartu beranda hanya merepresentasikan rute wajib dari journey aktif,
+      // bukan seluruh visit wajib lama yang kebetulan memiliki tanggal sama.
+      final outlets = <String, VisitModel>{};
+      for (final visit in controller.requiredTodayVisits) {
+        final key = visit.outletId ?? visit.outletCode ?? visit.outletName;
+        final current = outlets[key];
+        if (current == null ||
+            (current.status != 'Completed' && visit.status == 'Completed')) {
+          outlets[key] = visit;
+        }
+      }
+      final visits = outlets.values.toList();
       final completed = visits
           .where((visit) => visit.status == 'Completed')
           .length;
