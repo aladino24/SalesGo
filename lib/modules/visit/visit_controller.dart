@@ -4,7 +4,6 @@ import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-import '../../core/network/network_info.dart';
 import '../../core/location/location_service.dart';
 import '../../core/location/route_estimate_service.dart';
 import '../../data/models/visit_model.dart';
@@ -16,16 +15,14 @@ import '../../data/repositories/master_repository.dart';
 import '../../core/auth/session_service.dart';
 
 class VisitController extends GetxController with WidgetsBindingObserver {
-  VisitController({VisitRepository? repository, JourneyRepository? journeyRepository, NetworkInfo? networkInfo, LocationService? locationService, RouteEstimateService? routeService})
+  VisitController({VisitRepository? repository, JourneyRepository? journeyRepository, LocationService? locationService, RouteEstimateService? routeService})
       : _repository = repository ?? VisitRepository(),
         _journeyRepository = journeyRepository ?? JourneyRepository(),
-        _networkInfo = networkInfo ?? Get.find<NetworkInfo>(),
         _locationService = locationService ?? LocationService(),
         _routeService = routeService ?? RouteEstimateService();
 
   final VisitRepository _repository;
   final JourneyRepository _journeyRepository;
-  final NetworkInfo _networkInfo;
   final LocationService _locationService;
   final RouteEstimateService _routeService;
 
@@ -83,11 +80,16 @@ class VisitController extends GetxController with WidgetsBindingObserver {
   Future<void> loadVisits() async {
     isLoading.value = true;
     try {
-      activeJourney.value = await _journeyRepository.activeJourneyForToday();
-      final data = await _repository.getVisits(isOnline: await _networkInfo.isConnected);
-      visits.assignAll(data);
-      optionalRouteVisits.assignAll(await _loadOptionalRouteVisits(data));
-      activeVisit.value = _findActive(data);
+      activeJourney.value =
+          await _journeyRepository.activeJourneyForToday();
+      // Cache adalah sumber tampilan utama. Data server masuk ke cache hanya
+      // melalui Download Data Terbaru/Pulihkan State, sehingga buka halaman
+      // kunjungan tetap cepat dan konsisten saat jaringan berubah.
+      final data = await _repository.getVisits(isOnline: false);
+      final hydratedVisits = await _hydrateRequiredRouteVisits(data);
+      visits.assignAll(hydratedVisits);
+      optionalRouteVisits.assignAll(await _loadOptionalRouteVisits(hydratedVisits));
+      activeVisit.value = _findActive(hydratedVisits);
       totalOutlet.value = requiredTodayVisits.length + optionalRouteVisits.length;
     } finally {
       isLoading.value = false;
@@ -191,6 +193,81 @@ class VisitController extends GetxController with WidgetsBindingObserver {
   String _todayKey() {
     final today = DateTime.now();
     return '${today.year}-${today.month}-${today.day}';
+  }
+
+  /// Setelah pemulihan state, endpoint visit mungkin belum sempat mengirim
+  /// ulang snapshot terbaru. Bentuk daftar wajib dari cache master rute agar
+  /// journey aktif tetap langsung dapat dipakai offline.
+  Future<List<VisitModel>> _hydrateRequiredRouteVisits(
+    List<VisitModel> existingVisits,
+  ) async {
+    final journey = activeJourney.value;
+    if (journey == null) return existingVisits;
+
+    final box = Hive.isBoxOpen('route_master_cache')
+        ? Hive.box('route_master_cache')
+        : await Hive.openBox('route_master_cache');
+    final records = box.get('records');
+    if (records is! List) return existingVisits;
+
+    final masterOutlets = await MasterRepository().getOutlets(isOnline: false);
+    final outletsById = <String, OutletModel>{
+      for (final outlet in masterOutlets) outlet.id: outlet,
+    };
+    final today = DateTime.now();
+    final dateKey =
+        '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    final week = ((today.day - 1) ~/ 7 + 1).clamp(1, 4).toInt();
+    final userId = Get.find<SessionService>().userId.value;
+    final merged = <String, VisitModel>{
+      for (final visit in existingVisits) visit.id: visit,
+    };
+
+    for (final raw in records.whereType<Map>()) {
+      final record = Map<String, dynamic>.from(raw);
+      if (userId.isNotEmpty && record['salesId']?.toString() != userId) {
+        continue;
+      }
+      if (record['isActive'] == false ||
+          (record['dayOfWeek'] as num?)?.toInt() != today.weekday ||
+          (record['weekOfMonth'] as num?)?.toInt() != week) {
+        continue;
+      }
+      final outletRaw = record['outlet'];
+      final outlet = outletRaw is Map
+          ? Map<String, dynamic>.from(outletRaw)
+          : <String, dynamic>{};
+      final outletId = (record['outletId'] ?? outlet['id'])?.toString() ?? '';
+      if (outletId.isEmpty) continue;
+      final exists = merged.values.any((visit) =>
+          visit.isRequired &&
+          visit.outletId == outletId &&
+          _isToday(visit) &&
+          (visit.journeyId == journey.id ||
+              visit.journeyId == journey.serverId));
+      if (exists) continue;
+      final cachedOutlet = outletsById[outletId];
+      final id = 'REQUIRED-${journey.serverId ?? journey.id}-$outletId-$dateKey';
+      merged[id] = VisitModel(
+        id: id,
+        outletName:
+            outlet['name']?.toString() ?? cachedOutlet?.name ?? 'Outlet',
+        status: 'Planned',
+        distanceKm: 0,
+        salesName: Get.find<SessionService>().userName.value,
+        createdAt: today,
+        outletId: outletId,
+        latitude: _coordinate(outlet['latitude'], cachedOutlet?.latitude),
+        longitude: _coordinate(outlet['longitude'], cachedOutlet?.longitude),
+        journeyId: journey.serverId ?? journey.id,
+        isRequired: true,
+        plannedFor: dateKey,
+        outletAddress:
+            outlet['address']?.toString() ?? cachedOutlet?.address,
+        outletCode: outlet['code']?.toString() ?? cachedOutlet?.code,
+      );
+    }
+    return merged.values.toList();
   }
 
   Future<List<VisitModel>> _loadOptionalRouteVisits(

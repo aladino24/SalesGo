@@ -36,8 +36,8 @@ class JourneyController extends GetxController {
     try {
       // Menutup status Active yang sudah di luar periode pada cache/server.
       // Daftar lalu dimuat ulang agar rute wajib yang kedaluwarsa hilang.
-      await _repository.activeJourneyForToday();
-      journeys.assignAll(await _repository.all());
+      await _repository.activeJourneyForToday(refreshFromServer: true);
+      journeys.assignAll(await _repository.all(refreshFromServer: true));
     } finally {
       isLoading.value = false;
     }

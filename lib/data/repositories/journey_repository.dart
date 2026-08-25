@@ -19,8 +19,8 @@ class JourneyRepository {
 
   Future<Box> get _box async => Hive.isBoxOpen('journeys') ? Hive.box('journeys') : Hive.openBox('journeys');
 
-  Future<List<JourneyModel>> all() async {
-    if (await _network.isConnected) {
+  Future<List<JourneyModel>> all({bool refreshFromServer = true}) async {
+    if (refreshFromServer && await _network.isConnected) {
       try {
         final response = await _api.get<dynamic>(ApiEndpoints.journeys);
         final list = response is List ? response : <dynamic>[];
@@ -44,8 +44,10 @@ class JourneyRepository {
 
   /// Mengakhiri perjalanan aktif yang periodenya sudah lewat berdasarkan
   /// tanggal perangkat. Visit wajib hanya boleh hidup selama periode ini.
-  Future<JourneyModel?> activeJourneyForToday() async {
-    final journeys = await all();
+  Future<JourneyModel?> activeJourneyForToday({
+    bool refreshFromServer = false,
+  }) async {
+    final journeys = await all(refreshFromServer: refreshFromServer);
     final today = _dateOnly(DateTime.now());
     JourneyModel? active;
 
