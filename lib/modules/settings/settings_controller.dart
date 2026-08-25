@@ -83,6 +83,9 @@ class SettingsController extends GetxController {
       if (Get.isRegistered<InformationController>()) {
         await Get.find<InformationController>().refreshFromCache();
       }
+      if (Get.isRegistered<VisitController>()) {
+        await Get.find<VisitController>().loadVisits();
+      }
       await SfaFeedbackDialog.show(type: SfaFeedbackType.sync, title: 'Data terbaru siap', message: '${result.products} produk, ${result.outlets} outlet, ${result.routes} rute, ${result.promotions} promosi, dan ${result.files} metadata file diperbarui.');
     } on StateError catch (error) {
       SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Tidak dapat mengunduh', message: error.message);
