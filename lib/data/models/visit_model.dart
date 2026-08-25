@@ -30,21 +30,39 @@ class VisitModel {
 
   factory VisitModel.fromJson(Map<String, dynamic> json) {
     return VisitModel(
-      id: json['id'] as String,
-      outletName: json['outletName'] as String,
-      status: json['status'] as String,
-      distanceKm: (json['distanceKm'] as num).toDouble(),
-      salesName: json['salesName'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      id: json['id']?.toString() ?? '',
+      outletName: json['outletName']?.toString() ?? 'Outlet',
+      status: json['status']?.toString() ?? 'Planned',
+      distanceKm: _asDouble(json['distanceKm']),
+      salesName: json['salesName']?.toString() ?? '',
+      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+          DateTime.now(),
       outletId: json['outletId']?.toString(),
-      latitude: (json['latitude'] as num?)?.toDouble(),
-      longitude: (json['longitude'] as num?)?.toDouble(),
+      latitude: _asNullableDouble(json['latitude']),
+      longitude: _asNullableDouble(json['longitude']),
       journeyId: json['journeyId']?.toString(),
-      isRequired: json['isRequired'] as bool? ?? true,
+      isRequired: _asBool(json['isRequired'], fallback: true),
       plannedFor: json['plannedFor']?.toString(),
       outletAddress: json['outletAddress']?.toString(),
       outletCode: json['outletCode']?.toString(),
     );
+  }
+
+  static double _asDouble(dynamic value) =>
+      _asNullableDouble(value) ?? 0;
+
+  static double? _asNullableDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
+  }
+
+  static bool _asBool(dynamic value, {required bool fallback}) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      return value.toLowerCase() == 'true' || value == '1';
+    }
+    return fallback;
   }
 
   Map<String, dynamic> toJson() => {
