@@ -42,6 +42,8 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
   final _tableScroll = ScrollController();
   final _drafts = <String, _RouteDraft>{};
   var _query = '';
+  int? _filterDay;
+  int? _filterWeek;
   var _page = 0;
   static const _pageSize = 25;
   static const _cacheBoxName = 'route_master_cache';
@@ -348,7 +350,12 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
                     final outlet = item['outlet'] is Map ? Map<String, dynamic>.from(item['outlet'] as Map) : <String, dynamic>{};
                     final sales = item['sales'] is Map ? Map<String, dynamic>.from(item['sales'] as Map) : <String, dynamic>{};
                     final text = '${outlet['code'] ?? ''} ${outlet['name'] ?? ''} ${sales['employeeCode'] ?? ''} ${sales['name'] ?? ''}'.toLowerCase();
-                    return _query.isEmpty || text.contains(_query);
+                    final matchesText = _query.isEmpty || text.contains(_query);
+                    final matchesDay = _filterDay == null ||
+                        (item['dayOfWeek'] as num?)?.toInt() == _filterDay;
+                    final matchesWeek = _filterWeek == null ||
+                        (item['weekOfMonth'] as num?)?.toInt() == _filterWeek;
+                    return matchesText && matchesDay && matchesWeek;
                   }).toList();
                   final pageCount = records.isEmpty ? 1 : (records.length / _pageSize).ceil();
                   final page = _page >= pageCount ? pageCount - 1 : _page;
@@ -381,12 +388,100 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    LayoutBuilder(builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 480;
+                      final inputWidth = compact
+                          ? constraints.maxWidth
+                          : (constraints.maxWidth - 10) / 2;
+                      return Wrap(spacing: 10, runSpacing: 10, children: [
+                        SizedBox(
+                          width: inputWidth,
+                          child: DropdownButtonFormField<int>(
+                          value: _filterDay,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Filter hari',
+                            prefixIcon: Icon(Icons.calendar_today_outlined),
+                          ),
+                          items: [
+                            const DropdownMenuItem<int>(
+                              value: null,
+                              child: Text('Semua hari'),
+                            ),
+                            ...List.generate(
+                              _days.length,
+                              (index) => DropdownMenuItem<int>(
+                                value: index + 1,
+                                child: Text(_days[index]),
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) => setState(() {
+                            _filterDay = value;
+                            _page = 0;
+                          }),
+                          ),
+                        ),
+                        SizedBox(
+                          width: inputWidth,
+                          child: DropdownButtonFormField<int>(
+                          value: _filterWeek,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Filter minggu',
+                            prefixIcon: Icon(Icons.date_range_outlined),
+                          ),
+                          items: [
+                            const DropdownMenuItem<int>(
+                              value: null,
+                              child: Text('Semua minggu'),
+                            ),
+                            ...List.generate(
+                              4,
+                              (index) => DropdownMenuItem<int>(
+                                value: index + 1,
+                                child: Text('Minggu ${index + 1}'),
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) => setState(() {
+                            _filterWeek = value;
+                            _page = 0;
+                          }),
+                          ),
+                        ),
+                      ]);
+                    }),
+                    if (_filterDay != null || _filterWeek != null)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          onPressed: () => setState(() {
+                            _filterDay = null;
+                            _filterWeek = null;
+                            _page = 0;
+                          }),
+                          icon: const Icon(Icons.filter_alt_off_outlined),
+                          label: const Text('Reset filter jadwal'),
+                        ),
+                      ),
                     const SizedBox(height: 10),
-                    const Row(children: [
-                      Icon(Icons.swipe_rounded, size: 18, color: AppColors.textSecondary),
-                      SizedBox(width: 6),
-                      Text('Geser tabel ke kanan atau kiri untuk melihat seluruh hari, minggu, dan aksi.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                    ]),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primarySoft.withValues(alpha: .55),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.swipe_rounded, size: 18, color: AppColors.textSecondary),
+                          SizedBox(width: 8),
+                          Expanded(child: Text('Geser tabel ke kanan atau kiri untuk melihat seluruh hari, minggu, dan aksi.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary))),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     if (records.isEmpty)
                       const Padding(padding: EdgeInsets.only(top: 72), child: SfaEmptyState(icon: Icons.search_off_rounded, title: 'Rute tidak ditemukan', description: 'Hapus atau ubah kata kunci pencarian.'))
