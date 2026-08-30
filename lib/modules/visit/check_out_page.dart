@@ -65,6 +65,8 @@ class _CheckOutPageState extends State<CheckOutPage> {
       );
       return;
     }
+    final confirmed = await _confirmCheckOut();
+    if (!confirmed) return;
     setState(() => saving = true);
     const uuid = Uuid();
     await _localVisits.updateStatus(widget.visitId, 'Completed');
@@ -96,6 +98,26 @@ class _CheckOutPageState extends State<CheckOutPage> {
       title: 'Checkout berhasil',
       message: 'Kunjungan selesai dan siap disinkronkan.',
     );
+  }
+
+  Future<bool> _confirmCheckOut() async {
+    return await Get.dialog<bool>(
+          AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+            icon: const CircleAvatar(radius: 26, backgroundColor: Color(0xFFEAFBF0), child: Icon(Icons.logout_rounded, color: AppColors.success, size: 30)),
+            title: const Text('Selesaikan kunjungan?'),
+            content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(widget.outlet.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 7),
+              const Text('Pastikan seluruh order, catatan, dan aktivitas outlet telah dicatat sebelum check-out.', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+            ]),
+            actions: [
+              TextButton(onPressed: () => Get.back(result: false), child: const Text('Kembali')),
+              FilledButton.icon(style: FilledButton.styleFrom(backgroundColor: AppColors.success), onPressed: () => Get.back(result: true), icon: const Icon(Icons.check_circle_outline), label: const Text('Ya, Check-out')),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   @override

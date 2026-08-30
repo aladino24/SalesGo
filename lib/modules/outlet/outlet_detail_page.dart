@@ -67,10 +67,9 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
   }
 
   Future<void> _hydrateOutletFromLocalCache() async {
-    final cachedOutlets = await MasterRepository().getOutlets(isOnline: false);
-    OutletModel? cachedOutlet;
-
-    for (final candidate in cachedOutlets) {
+    Future<void> apply(List<OutletModel> candidates) async {
+      OutletModel? cachedOutlet;
+      for (final candidate in candidates) {
       if (candidate.id == widget.outlet.id ||
           (widget.outlet.code.isNotEmpty &&
               widget.outlet.code != '-' &&
@@ -79,9 +78,13 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
         break;
       }
     }
+      if (mounted && cachedOutlet != null) setState(() => outlet = cachedOutlet!);
+    }
 
-    if (!mounted || cachedOutlet == null) return;
-    setState(() => outlet = cachedOutlet!);
+    // Cache tampil seketika untuk offline, lalu master online memperbarui
+    // owner, kontak, divisi, dan jadwal sales bila tersedia.
+    await apply(await MasterRepository().getOutlets(isOnline: false));
+    await apply(await MasterRepository().getOutlets(isOnline: true));
   }
 
   Future<void> _restoreActiveVisit() async {

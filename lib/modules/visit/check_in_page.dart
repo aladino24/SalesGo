@@ -102,14 +102,20 @@ class _CheckInPageState extends State<CheckInPage> {
       SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'GPS diperlukan', message: _locationError ?? 'Ambil lokasi terlebih dahulu.');
       return;
     }
-    if (_requiresOverrideApproval && _overrideReason == null) {
-      await _requestOutOfRadiusOverride();
-      if (_overrideReason == null) return;
+    if (_requiresOverrideApproval) {
+      final continueOutside = await _confirmRequiredOutOfRadius();
+      if (!continueOutside) return;
+      if (_overrideReason == null) {
+        await _requestOutOfRadiusOverride();
+        if (_overrideReason == null) return;
+      }
     }
-    if (widget.isRequired && _photoPath == null) {
-      SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'Foto diperlukan', message: 'Ambil foto bukti kunjungan terlebih dahulu.');
+    if (_requiresOverrideApproval && _photoPath == null) {
+      SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'Foto diperlukan', message: 'Ambil foto bukti untuk pengajuan check-in luar radius.');
       return;
     }
+    final confirmed = await _confirmCheckIn(isOverride: _requiresOverrideApproval);
+    if (!confirmed) return;
 
     final location = _location!;
     final isOverride = _requiresOverrideApproval;
@@ -192,6 +198,45 @@ class _CheckInPageState extends State<CheckInPage> {
     });
   }
 
+  Future<bool> _confirmRequiredOutOfRadius() async {
+    return await Get.dialog<bool>(
+          AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+            icon: const CircleAvatar(radius: 26, backgroundColor: Color(0xFFFFF3E0), child: Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 30)),
+            title: const Text('Di luar radius kunjungan'),
+            content: Text('Jarak Anda ${_distanceMeters.toStringAsFixed(0)} meter, sedangkan radius outlet ${_allowedRadiusMeters.toStringAsFixed(0)} meter. Kunjungan wajib memerlukan approval Branch Manager.'),
+            actions: [
+              TextButton(onPressed: () => Get.back(result: false), child: const Text('Kembali')),
+              FilledButton.icon(onPressed: () => Get.back(result: true), icon: const Icon(Icons.arrow_forward_rounded), label: const Text('Tetap lanjutkan')),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<bool> _confirmCheckIn({required bool isOverride}) async {
+    final outside = !_isWithinRadius;
+    return await Get.dialog<bool>(
+          AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+            icon: CircleAvatar(radius: 26, backgroundColor: isOverride ? const Color(0xFFFFF3E0) : AppColors.primarySoft, child: Icon(isOverride ? Icons.assignment_turned_in_rounded : Icons.login_rounded, color: isOverride ? AppColors.warning : AppColors.primary, size: 30)),
+            title: Text(isOverride ? 'Ajukan check-in luar radius?' : 'Konfirmasi check-in'),
+            content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(widget.outlet.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 7),
+              Text(outside ? 'Lokasi Anda di luar radius (${_distanceMeters.toStringAsFixed(0)} meter).' : 'Lokasi Anda berada dalam radius outlet.'),
+              const SizedBox(height: 10),
+              Text(isOverride ? 'Pengajuan akan dikirim ke Branch Manager untuk approval.' : 'Setelah check-in, transaksi outlet dapat dilakukan.', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            ]),
+            actions: [
+              TextButton(onPressed: () => Get.back(result: false), child: const Text('Batal')),
+              FilledButton(onPressed: () => Get.back(result: true), child: Text(isOverride ? 'Ajukan' : 'Check-in')),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -210,8 +255,8 @@ class _CheckInPageState extends State<CheckInPage> {
             const SizedBox(height: 9),
             _buildLocationStatus(),
             const SizedBox(height: 22),
-            if (widget.isRequired) ...[
-              const SfaSectionTitle(title: 'Foto Outlet', actionLabel: 'Wajib'),
+            if (widget.isRequired && !_isLoadingLocation && _requiresOverrideApproval) ...[
+              const SfaSectionTitle(title: 'Foto Outlet', actionLabel: 'Wajib untuk override'),
               const SizedBox(height: 8),
               _buildPhotoCapture(),
               const SizedBox(height: 20),

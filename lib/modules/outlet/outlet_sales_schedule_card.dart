@@ -5,21 +5,29 @@ import '../../app/theme/app_colors.dart';
 import '../../core/auth/session_service.dart';
 import '../../data/models/outlet_model.dart';
 
-class OutletSalesScheduleCard extends StatelessWidget {
+class OutletSalesScheduleCard extends StatefulWidget {
   const OutletSalesScheduleCard({super.key, required this.schedules});
   final List<OutletSalesSchedule> schedules;
+
+  @override
+  State<OutletSalesScheduleCard> createState() => _OutletSalesScheduleCardState();
+}
+
+class _OutletSalesScheduleCardState extends State<OutletSalesScheduleCard> {
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
     final session = Get.find<SessionService>();
     const days = ['', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+    final visibleSchedules = _expanded ? widget.schedules : widget.schedules.take(2).toList();
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Row(children: [Icon(Icons.groups_rounded, color: AppColors.primary), SizedBox(width: 8), Text('Jadwal Sales ke Outlet', style: TextStyle(fontWeight: FontWeight.w800))]),
+          Row(children: [const Icon(Icons.groups_rounded, color: AppColors.primary), const SizedBox(width: 8), const Expanded(child: Text('Jadwal Sales ke Outlet', style: TextStyle(fontWeight: FontWeight.w800))), Text('${widget.schedules.length} jadwal', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary))]),
           const SizedBox(height: 10),
-          ...schedules.map((schedule) {
+          ...visibleSchedules.map((schedule) {
             final mine = schedule.salesId == session.userId.value || (schedule.employeeCode.isNotEmpty && schedule.employeeCode == session.employeeCode.value);
             final day = schedule.dayOfWeek >= 1 && schedule.dayOfWeek <= 7 ? days[schedule.dayOfWeek] : 'Hari -';
             return Container(
@@ -34,6 +42,8 @@ class OutletSalesScheduleCard extends StatelessWidget {
               ]),
             );
           }),
+          if (widget.schedules.length > 2)
+            Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: () => setState(() => _expanded = !_expanded), icon: Icon(_expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded), label: Text(_expanded ? 'Sembunyikan' : 'Lihat semua jadwal'))),
         ]),
       ),
     );

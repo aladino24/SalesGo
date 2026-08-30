@@ -31,7 +31,6 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
   bool _loading = true;
   bool _saving = false;
   String _division = '';
-  String _category = '';
   int _minimumUnits = 1;
   int _maximumUnits = 1000;
   double _minimumAmount = 0;
@@ -82,9 +81,8 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
     final query = _search.text.trim().toLowerCase();
     return _products.where((product) {
       final matchesDivision = _division.isEmpty || product.divisionCode == _division;
-      final matchesCategory = _category.isEmpty || product.category == _category;
       final haystack = '${product.name} ${product.brand} ${product.variant} ${product.sku} ${product.barcode}'.toLowerCase();
-      return matchesDivision && matchesCategory && (query.isEmpty || haystack.contains(query));
+      return matchesDivision && (query.isEmpty || haystack.contains(query));
     }).toList();
   }
 
@@ -110,7 +108,6 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
   int get _totalUnits => _itemCount;
   double get _total => _cartProducts.fold(0, (sum, product) => sum + product.price * (_cart[product.id] ?? 0));
   List<String> get _divisions => _products.map((item) => item.divisionCode).where((item) => item.isNotEmpty).toSet().toList()..sort();
-  List<String> get _categories => _products.where((item) => _division.isEmpty || item.divisionCode == _division).map((item) => item.category).where((item) => item.isNotEmpty).toSet().toList()..sort();
 
   String _divisionLabel(String code) {
     final product = _products.firstWhereOrNull((item) => item.divisionCode == code);
@@ -207,11 +204,8 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
           _FilterBar(
             divisions: _divisions,
             divisionLabel: _divisionLabel,
-            categories: _categories,
             division: _division,
-            category: _category,
-            onDivision: (value) => setState(() { _division = value; _category = ''; }),
-            onCategory: (value) => setState(() => _category = value),
+            onDivision: (value) => setState(() => _division = value),
           ),
           const SizedBox(height: 6),
           Expanded(
@@ -281,11 +275,11 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
 }
 
 class _FilterBar extends StatelessWidget {
-  const _FilterBar({required this.divisions, required this.divisionLabel, required this.categories, required this.division, required this.category, required this.onDivision, required this.onCategory});
-  final List<String> divisions, categories;
+  const _FilterBar({required this.divisions, required this.divisionLabel, required this.division, required this.onDivision});
+  final List<String> divisions;
   final String Function(String) divisionLabel;
-  final String division, category;
-  final ValueChanged<String> onDivision, onCategory;
+  final String division;
+  final ValueChanged<String> onDivision;
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -294,8 +288,6 @@ class _FilterBar extends StatelessWidget {
           ChoiceChip(label: const Text('Semua divisi'), selected: division.isEmpty, onSelected: (_) => onDivision('')),
           const SizedBox(width: 7),
           ...divisions.expand((item) => [ChoiceChip(label: Text(divisionLabel(item)), selected: division == item, onSelected: (_) => onDivision(item)), const SizedBox(width: 7)]),
-          if (categories.isNotEmpty) const VerticalDivider(width: 20),
-          ...categories.expand((item) => [FilterChip(label: Text(item), selected: category == item, onSelected: (selected) => onCategory(selected ? item : '')), const SizedBox(width: 7)]),
         ]),
       );
 }
@@ -322,7 +314,7 @@ class _ProductFamilyCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(10),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: Container(width: double.infinity, decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(10)), child: imageUrl.isEmpty ? const Icon(Icons.inventory_2_outlined, size: 42, color: AppColors.primary) : Image.network(imageUrl, headers: {'Authorization': 'Bearer ${Get.find<SessionService>().accessToken.value}'}, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: AppColors.textSecondary)))),
+            Expanded(child: Container(width: double.infinity, decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(10)), child: imageUrl.isEmpty ? const Icon(Icons.inventory_2_outlined, size: 42, color: AppColors.primary) : Image.network(imageUrl, headers: {'Authorization': 'Bearer ${Get.find<SessionService>().accessToken.value}', 'ngrok-skip-browser-warning': 'true'}, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_outlined, color: AppColors.textSecondary)))),
             const SizedBox(height: 8),
             Row(children: [
               Expanded(child: Text(family.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800))),
