@@ -53,14 +53,27 @@ class SyncStorage {
   /// Get all pending items (status = pending or failed)
   static List<SyncItem> pendingItems({bool force = false}) {
     final items = <SyncItem>[];
+    final now = DateTime.now();
     for (final key in box.keys) {
       if (key == _lastSyncKey) continue;
 
       final data = box.get(key) as Map?;
       if (data != null) {
         final item = SyncItem.fromJson(Map<String, dynamic>.from(data));
-        final canRetry = force || item.nextAttemptAt == null || !item.nextAttemptAt!.isAfter(DateTime.now());
-        if ((item.status == 'pending' || item.status == 'failed') && canRetry) {
+        final canRetry = force ||
+            item.nextAttemptAt == null ||
+            !item.nextAttemptAt!.isAfter(now);
+        // Aplikasi dapat ditutup/kehabisan koneksi ketika request sedang
+        // berlangsung. Jangan biarkan status `syncing` tertinggal selamanya;
+        // item stale atau sync paksa dapat diambil ulang memakai idempotency
+        // key yang sama sehingga aman dari duplikasi server.
+        final staleSyncing = item.status == 'syncing' &&
+            (force ||
+                item.lastAttemptAt == null ||
+                now.difference(item.lastAttemptAt!).inSeconds >= 30);
+        if (((item.status == 'pending' || item.status == 'failed') &&
+                canRetry) ||
+            staleSyncing) {
           items.add(item);
         }
       }

@@ -32,6 +32,9 @@ class SyncManager extends GetxController {
   void onInit() {
     super.onInit();
     _listenToConnectivity();
+    // Pemulihan antrean setelah aplikasi dibuka kembali tidak boleh menunggu
+    // perubahan sinyal Wi-Fi/data seluler terlebih dahulu.
+    Future<void>.microtask(syncNow);
   }
 
   void _listenToConnectivity() {
@@ -44,6 +47,10 @@ class SyncManager extends GetxController {
   }
 
   Future<void> syncNow({bool force = false}) async {
+    // Beberapa pemicu (koneksi pulih, tombol manual, item baru) dapat datang
+    // berdekatan. Satu worker mobile cukup; paralel dapat membuat state queue
+    // tampak terus-menerus `syncing`.
+    if (isSyncing.value) return;
     final connected = await _networkInfo.isConnected;
     if (!connected) {
       status.value = 'offline';
