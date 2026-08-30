@@ -33,13 +33,17 @@ class MasterDataDownloadService {
     final products = _products(datasets['products']);
     onProgress?.call(const MasterDownloadProgress(value: .6, label: 'Memvalidasi outlet...'));
     final outlets = _outlets(datasets['outlets']);
+    final orderPolicy = _orderPolicy(datasets['orderPolicy']);
 
     onProgress?.call(const MasterDownloadProgress(value: .8, label: 'Memperbarui penyimpanan lokal...'));
     await _local.replaceValidatedMasterData(products: products, outlets: outlets);
+    await LocalStorage.appBox.put('order_policy', orderPolicy);
     onProgress?.call(const MasterDownloadProgress(value: .88, label: 'Memperbarui promosi, file, dan master rute...'));
     final extra = await _downloadAdditionalMasterData();
     final generatedAt = response['generatedAt']?.toString() ?? DateTime.now().toUtc().toIso8601String();
     await LocalStorage.appBox.put('last_master_download_at', DateTime.now().toIso8601String());
+    final localToday = DateTime.now();
+    await LocalStorage.appBox.put('last_master_download_day', '${localToday.year}-${localToday.month}-${localToday.day}');
     await LocalStorage.appBox.put('last_master_generated_at', generatedAt);
     await LocalStorage.appBox.put('last_master_revision', response['revision']?.toString() ?? '');
     await LocalStorage.appBox.put('last_master_products_count', products.length);
@@ -107,6 +111,28 @@ class MasterDataDownloadService {
       return OutletModel.fromJson(Map<String, dynamic>.from(item));
     }).toList();
   }
+
+  Map<String, dynamic> _orderPolicy(dynamic raw) {
+    if (raw is! Map) return const {
+      'minimumUnits': 1,
+      'maximumUnits': 1000,
+      'minimumAmount': 0.0,
+      'maximumAmount': 0.0,
+    };
+    final minimumUnits = _integer(raw['minimumUnits'], fallback: 1).clamp(1, 100000).toInt();
+    final maximumUnits = _integer(raw['maximumUnits'], fallback: 1000).clamp(minimumUnits, 100000).toInt();
+    return {
+      'minimumUnits': minimumUnits,
+      'maximumUnits': maximumUnits,
+      'minimumAmount': _number(raw['minimumAmount']),
+      'maximumAmount': _number(raw['maximumAmount']),
+    };
+  }
+
+  int _integer(dynamic value, {required int fallback}) =>
+      value is num ? value.toInt() : int.tryParse(value?.toString() ?? '') ?? fallback;
+  double _number(dynamic value) =>
+      value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '') ?? 0;
 }
 
 class MasterDownloadProgress {

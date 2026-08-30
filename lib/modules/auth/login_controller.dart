@@ -4,6 +4,7 @@ import '../../core/auth/session_service.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../app/widgets/sfa_feedback_dialog.dart';
 import '../../core/notifications/push_notification_service.dart';
+import '../../core/sync/master_auto_download_service.dart';
 import '../notification/notification_controller.dart';
 
 class LoginController extends GetxController {
@@ -32,6 +33,7 @@ class LoginController extends GetxController {
         await Get.find<NotificationController>().load();
       }
       await Get.find<PushNotificationService>().start();
+      Get.find<MasterAutoDownloadService>().start(showProgress: true);
       Get.offAllNamed('/home');
     } catch (_) {
       SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Login gagal', message: 'Tidak dapat masuk. Periksa koneksi atau kredensial Anda.');

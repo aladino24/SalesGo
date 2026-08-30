@@ -7,6 +7,7 @@ import '../storage/local_storage.dart';
 import 'app_roles.dart';
 import '../../data/models/auth_session_model.dart';
 import '../location/location_tracking_service.dart';
+import '../sync/master_auto_download_service.dart';
 
 class SessionService extends GetxService {
   static const _keyUserRole = 'user_role';
@@ -93,6 +94,9 @@ class SessionService extends GetxService {
   Future<void> logout() async {
     if (Get.isRegistered<LocationTrackingService>()) {
       await Get.find<LocationTrackingService>().stop();
+    }
+    if (Get.isRegistered<MasterAutoDownloadService>()) {
+      Get.find<MasterAutoDownloadService>().dispose();
     }
     _expiryTimer?.cancel();
     currentRole.value = null;

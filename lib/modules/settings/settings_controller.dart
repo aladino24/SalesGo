@@ -175,6 +175,7 @@ class SettingsController extends GetxController {
         'last_master_download_at', 'last_master_generated_at', 'last_master_revision',
         'last_master_products_count', 'last_master_outlets_count', 'last_master_routes_count',
         'last_master_promotions_count', 'last_master_files_count',
+        'last_master_download_day', 'order_policy',
         'last_server_state_restore_at', 'last_server_state_generated_at',
         'has_server_state_snapshot',
       ]);

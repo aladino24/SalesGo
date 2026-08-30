@@ -15,6 +15,7 @@ import '../../data/repositories/outlet_transaction_repository.dart';
 import '../../data/repositories/master_repository.dart';
 import '../../data/datasources/local/visit_local_data_source.dart';
 import '../../data/repositories/visit_timeline_repository.dart';
+import '../../core/auth/session_service.dart';
 import '../sales/sales_order_page.dart';
 import '../visit/check_in_page.dart';
 import '../visit/check_out_page.dart';
@@ -22,6 +23,7 @@ import '../visit/visit_action_page.dart';
 import '../visit/visit_controller.dart';
 import '../home/home_controller.dart';
 import 'outlet_transaction_page.dart';
+import 'outlet_sales_schedule_card.dart';
 
 enum _DetailMenuAction {
   purchase,
@@ -114,7 +116,9 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
             outlet.name,
             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
           ),
-          actions: [
+          actions: _activeVisitId == null
+              ? const []
+              : [
             PopupMenuButton<_DetailMenuAction>(
               onSelected: (action) => _openMenuAction(action),
               itemBuilder: (_) => const [
@@ -162,7 +166,10 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
               Expanded(
                 child: TabBarView(
                   children: [
-                    _OverviewTab(outlet: outlet),
+                    _OverviewTab(
+                      outlet: outlet,
+                      canTransact: _activeVisitId != null,
+                    ),
                     _OutletHistoryTab(outlet: outlet),
                     _ActivityTab(outlet: outlet),
                     const _NotesTab(),
@@ -242,7 +249,15 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
     ));
   }
 
-  void _openMenuAction(_DetailMenuAction action) {
+  Future<void> _openMenuAction(_DetailMenuAction action) async {
+    if (_activeVisitId == null) {
+      await SfaFeedbackDialog.show(
+        type: SfaFeedbackType.warning,
+        title: 'Check-in diperlukan',
+        message: 'Aksi transaksi outlet hanya tersedia setelah check-in berhasil.',
+      );
+      return;
+    }
     switch (action) {
       case _DetailMenuAction.purchase:
         Get.to(
@@ -304,31 +319,18 @@ class _VisitBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     margin: const EdgeInsets.fromLTRB(16, 2, 16, 12),
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
     decoration: BoxDecoration(
-      color: isCheckedIn ? const Color(0xFFEAFBF0) : AppColors.primarySoft,
-      borderRadius: BorderRadius.circular(10),
+      gradient: LinearGradient(colors: isCheckedIn ? const [Color(0xFF087F5B), Color(0xFF20B87A)] : const [AppColors.primary, Color(0xFF4F8CFF)]),
+      borderRadius: const BorderRadius.only(topLeft: Radius.circular(18), topRight: Radius.circular(18), bottomLeft: Radius.circular(42), bottomRight: Radius.circular(18)),
+      boxShadow: const [BoxShadow(color: Color(0x240B5FFF), blurRadius: 14, offset: Offset(0, 6))],
     ),
-    child: Row(
-      children: [
-        Icon(
-          isCheckedIn ? Icons.check_circle_rounded : Icons.schedule_rounded,
-          color: isCheckedIn ? AppColors.success : AppColors.primary,
-          size: 18,
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            isCheckedIn ? 'Sedang dalam kunjungan' : 'Belum check-in',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-          ),
-        ),
-        SfaStatusChip(
-          label: isCheckedIn ? 'Check-out' : 'Menunggu',
-          color: isCheckedIn ? AppColors.success : AppColors.primary,
-        ),
-      ],
-    ),
+    child: Row(children: [
+      Container(width: 44, height: 44, decoration: const BoxDecoration(color: Colors.white24, shape: BoxShape.circle), child: Icon(isCheckedIn ? Icons.store_rounded : Icons.location_searching_rounded, color: Colors.white)),
+      const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(isCheckedIn ? 'Anda sedang berada di outlet' : 'Siap untuk kunjungan', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)), const SizedBox(height: 3), Text(isCheckedIn ? 'Selesaikan transaksi lalu check-out saat kunjungan selesai.' : 'Lakukan check-in untuk membuka order dan aktivitas outlet.', style: const TextStyle(color: Colors.white70, fontSize: 11))])),
+      Icon(isCheckedIn ? Icons.verified_rounded : Icons.schedule_rounded, color: Colors.white),
+    ]),
   );
 }
 
@@ -337,10 +339,12 @@ class _OverviewTab extends StatelessWidget {
     required this.outlet,
     this.showPhoneAction = true,
     this.showQuickActions = true,
+    this.canTransact = false,
   });
   final OutletModel outlet;
   final bool showPhoneAction;
   final bool showQuickActions;
+  final bool canTransact;
   @override
   Widget build(BuildContext context) => FutureBuilder<OutletPerformanceModel>(
     future: OutletDetailRepository().getPerformance(outlet.id),
@@ -389,6 +393,23 @@ class _OverviewTab extends StatelessWidget {
               ),
             ),
           ),
+          if (outlet.divisions.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Divisi Outlet', style: TextStyle(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 10),
+                  Wrap(spacing: 8, runSpacing: 8, children: outlet.divisions.map((item) => Chip(avatar: const Icon(Icons.category_outlined, size: 16), label: Text(item.name.isEmpty ? 'Divisi ${item.code}' : item.name))).toList()),
+                ]),
+              ),
+            ),
+          ],
+          if (outlet.salesSchedules.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            OutletSalesScheduleCard(schedules: outlet.salesSchedules),
+          ],
           const SizedBox(height: 20),
           const SfaSectionTitle(
             title: 'Target & Pencapaian',
@@ -468,7 +489,7 @@ class _OverviewTab extends StatelessWidget {
             icon: Icons.lightbulb_outline_rounded,
             color: AppColors.primary,
           ),
-          if (showQuickActions) ...[
+          if (showQuickActions && canTransact) ...[
           const SizedBox(height: 20),
           const SfaSectionTitle(title: 'Aksi Cepat'),
           const SizedBox(height: 8),
