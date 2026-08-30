@@ -68,7 +68,6 @@ class PushNotificationService extends GetxService {
           sound: true,
         );
       }
-      await _registerToken(await messaging.getToken());
       _tokenRefreshSubscription = messaging.onTokenRefresh.listen(_registerToken);
       _openedAppSubscription = FirebaseMessaging.onMessageOpenedApp.listen(
         _openMessage,
@@ -98,6 +97,10 @@ class PushNotificationService extends GetxService {
           );
         }
       });
+      // Listener dipasang sebelum token didaftarkan. Backend dapat me-replay
+      // approval unread saat registrasi perangkat; push tersebut tidak boleh
+      // tiba sebelum listener foreground siap.
+      await _registerToken(await messaging.getToken());
       final initialMessage = await messaging.getInitialMessage();
       if (initialMessage != null) await _openMessage(initialMessage);
     } catch (_) {
