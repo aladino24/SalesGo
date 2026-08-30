@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:salesgo/core/auth/app_roles.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/widgets/sfa_ui.dart';
@@ -44,7 +45,9 @@ class SettingsPage extends GetView<SettingsController> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              session.userName.value.isEmpty ? 'user'.tr : session.userName.value,
+                              session.userName.value.isEmpty
+                                  ? 'user'.tr
+                                  : session.userName.value,
                               style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
@@ -86,18 +89,19 @@ class SettingsPage extends GetView<SettingsController> {
               icon: Icons.lock_outline_rounded,
               label: 'change_password'.tr,
             ),
-            _SettingTile(
-              icon: Icons.security_outlined,
-              label: 'security'.tr,
-            ),
+            _SettingTile(icon: Icons.security_outlined, label: 'security'.tr),
             const SizedBox(height: 18),
             const _GroupTitle('application'),
-            Obx(() => _SettingTile(
-                  icon: Icons.language_rounded,
-                  label: 'language'.tr,
-                  value: controller.languageCode.value == 'en' ? 'English' : 'Indonesia',
-                  onTap: () => _showLanguagePicker(context),
-                )),
+            Obx(
+              () => _SettingTile(
+                icon: Icons.language_rounded,
+                label: 'language'.tr,
+                value: controller.languageCode.value == 'en'
+                    ? 'English'
+                    : 'Indonesia',
+                onTap: () => _showLanguagePicker(context),
+              ),
+            ),
             _SettingTile(
               icon: Icons.light_mode_outlined,
               label: 'theme'.tr,
@@ -125,12 +129,18 @@ class SettingsPage extends GetView<SettingsController> {
                       onTap: controller.isDownloadingMasterData.value
                           ? null
                           : controller.downloadLatestMasterData,
-                      leading: const Icon(Icons.cloud_sync_outlined, color: AppColors.primary),
+                      leading: const Icon(
+                        Icons.cloud_sync_outlined,
+                        color: AppColors.primary,
+                      ),
                       title: Text(
                         controller.isDownloadingMasterData.value
                             ? 'downloading_latest_data'.tr
                             : 'download_latest_data'.tr,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       subtitle: Text(
                         controller.lastMasterDownloadAt.value.isEmpty
@@ -139,8 +149,15 @@ class SettingsPage extends GetView<SettingsController> {
                         style: const TextStyle(fontSize: 11),
                       ),
                       trailing: controller.isDownloadingMasterData.value
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppColors.textSecondary,
+                            ),
                     ),
                     if (controller.isDownloadingMasterData.value)
                       Padding(
@@ -148,9 +165,17 @@ class SettingsPage extends GetView<SettingsController> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            LinearProgressIndicator(value: controller.masterDownloadProgress.value),
+                            LinearProgressIndicator(
+                              value: controller.masterDownloadProgress.value,
+                            ),
                             const SizedBox(height: 7),
-                            Text(controller.masterDownloadLabel.value, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                            Text(
+                              controller.masterDownloadLabel.value,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -176,20 +201,23 @@ class SettingsPage extends GetView<SettingsController> {
             ),
             const SizedBox(height: 18),
             const _GroupTitle('others'),
-            _SettingTile(
-              icon: Icons.help_outline_rounded,
-              label: 'help'.tr,
-            ),
+            _SettingTile(icon: Icons.help_outline_rounded, label: 'help'.tr),
             _SettingTile(
               icon: Icons.info_outline_rounded,
               label: 'about_app'.tr,
             ),
-            Obx(() => _SettingTile(
-              icon: Icons.delete_outline_rounded,
-              label: controller.isClearingLocalData.value ? 'deleting_local_data'.tr : 'delete_local_data'.tr,
-              color: AppColors.danger,
-              onTap: controller.isClearingLocalData.value ? null : controller.deleteAllData,
-            )),
+            Obx(
+              () => _SettingTile(
+                icon: Icons.delete_outline_rounded,
+                label: controller.isClearingLocalData.value
+                    ? 'deleting_local_data'.tr
+                    : 'delete_local_data'.tr,
+                color: AppColors.danger,
+                onTap: controller.isClearingLocalData.value
+                    ? null
+                    : controller.deleteAllData,
+              ),
+            ),
             _SettingTile(
               icon: Icons.logout_rounded,
               label: 'logout'.tr,
@@ -213,22 +241,35 @@ class SettingsPage extends GetView<SettingsController> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('language'.tr, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              Text(
+                'language'.tr,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
               const SizedBox(height: 4),
-              Text('select_language'.tr, style: const TextStyle(color: AppColors.textSecondary)),
+              Text(
+                'select_language'.tr,
+                style: const TextStyle(color: AppColors.textSecondary),
+              ),
               const SizedBox(height: 12),
-              Obx(() => RadioListTile<String>(
-                    value: 'id',
-                    groupValue: controller.languageCode.value,
-                    onChanged: (value) => Navigator.of(sheetContext).pop(value),
-                    title: const Text('Indonesia'),
-                  )),
-              Obx(() => RadioListTile<String>(
-                    value: 'en',
-                    groupValue: controller.languageCode.value,
-                    onChanged: (value) => Navigator.of(sheetContext).pop(value),
-                    title: const Text('English'),
-                  )),
+              Obx(
+                () => RadioListTile<String>(
+                  value: 'id',
+                  groupValue: controller.languageCode.value,
+                  onChanged: (value) => Navigator.of(sheetContext).pop(value),
+                  title: const Text('Indonesia'),
+                ),
+              ),
+              Obx(
+                () => RadioListTile<String>(
+                  value: 'en',
+                  groupValue: controller.languageCode.value,
+                  onChanged: (value) => Navigator.of(sheetContext).pop(value),
+                  title: const Text('English'),
+                ),
+              ),
             ],
           ),
         ),

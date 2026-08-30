@@ -70,6 +70,10 @@ class MasterLocalDataSource {
   List<ProductModel> _uniqueProducts(List<ProductModel> items) {
     final unique = <String, ProductModel>{};
     for (final item in items) {
+      // Produk wajib menjadi bagian dari divisi sales. Dengan menyaring cache
+      // lama di sini, produk tanpa divisi tidak akan muncul saat perangkat
+      // offline setelah backend katalog diperbarui.
+      if (item.divisionCode.trim().isEmpty) continue;
       final key = item.sku.trim().isEmpty ? item.id : item.sku.trim().toUpperCase();
       unique[key] = item;
     }

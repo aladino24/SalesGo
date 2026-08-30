@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import 'package:salesgo/core/auth/app_roles.dart';
 
 import '../../core/auth/session_service.dart';
 import '../../core/network/api_endpoints.dart';
@@ -10,9 +11,9 @@ class MonitoringController extends GetxController {
     MonitoringRepository? repository,
     NetworkInfo? networkInfo,
     SessionService? session,
-  })  : _repository = repository ?? MonitoringRepository(),
-        _networkInfo = networkInfo ?? Get.find<NetworkInfo>(),
-        _session = session ?? Get.find<SessionService>();
+  }) : _repository = repository ?? MonitoringRepository(),
+       _networkInfo = networkInfo ?? Get.find<NetworkInfo>(),
+       _session = session ?? Get.find<SessionService>();
 
   final MonitoringRepository _repository;
   final NetworkInfo _networkInfo;
@@ -32,7 +33,8 @@ class MonitoringController extends GetxController {
 
   Map<String, dynamic>? get selectedTrackingMember {
     for (final member in members) {
-      if (member['id']?.toString() == selectedTrackingMemberId.value) return member;
+      if (member['id']?.toString() == selectedTrackingMemberId.value)
+        return member;
     }
     return null;
   }
@@ -48,12 +50,33 @@ class MonitoringController extends GetxController {
     isLoading.value = true;
     try {
       final online = await _networkInfo.isConnected;
-      final team = await _repository.getList(endpoint: ApiEndpoints.monitoringTeam, cacheKey: 'team', online: online);
+      final team = await _repository.getList(
+        endpoint: ApiEndpoints.monitoringTeam,
+        cacheKey: 'team',
+        online: online,
+      );
       members.assignAll(team);
-      visits.assignAll(team.where((item) => item['activeVisit'] is Map).map((item) => {...Map<String, dynamic>.from(item['activeVisit'] as Map), 'salesName': item['name'], 'employeeCode': item['employeeCode'], 'role': item['role']}).toList());
+      visits.assignAll(
+        team
+            .where((item) => item['activeVisit'] is Map)
+            .map(
+              (item) => {
+                ...Map<String, dynamic>.from(item['activeVisit'] as Map),
+                'salesName': item['name'],
+                'employeeCode': item['employeeCode'],
+                'role': item['role'],
+              },
+            )
+            .toList(),
+      );
       performance.clear();
-      if (selectedTrackingMemberId.value.isEmpty && members.isNotEmpty) selectedTrackingMemberId.value = members.first['id'].toString();
-      if (selectedActivityMemberId.value.isNotEmpty && !members.any((item) => item['id']?.toString() == selectedActivityMemberId.value)) selectedActivityMemberId.value = '';
+      if (selectedTrackingMemberId.value.isEmpty && members.isNotEmpty)
+        selectedTrackingMemberId.value = members.first['id'].toString();
+      if (selectedActivityMemberId.value.isNotEmpty &&
+          !members.any(
+            (item) => item['id']?.toString() == selectedActivityMemberId.value,
+          ))
+        selectedActivityMemberId.value = '';
       await Future.wait([loadActivities(), loadLocationHistory()]);
     } finally {
       isLoading.value = false;
@@ -77,9 +100,21 @@ class MonitoringController extends GetxController {
     try {
       final online = await _networkInfo.isConnected;
       final filter = selectedActivityMemberId.value;
-      final response = await _repository.getPaged(endpoint: ApiEndpoints.monitoringActivities, cacheKey: 'activities_${filter.isEmpty ? 'all' : filter}', online: online, query: {'perPage': 50, if (filter.isNotEmpty) 'salesId': filter});
+      final response = await _repository.getPaged(
+        endpoint: ApiEndpoints.monitoringActivities,
+        cacheKey: 'activities_${filter.isEmpty ? 'all' : filter}',
+        online: online,
+        query: {'perPage': 50, if (filter.isNotEmpty) 'salesId': filter},
+      );
       final raw = response['data'];
-      activities.assignAll(raw is List ? raw.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList() : const <Map<String, dynamic>>[]);
+      activities.assignAll(
+        raw is List
+            ? raw
+                  .whereType<Map>()
+                  .map((item) => Map<String, dynamic>.from(item))
+                  .toList()
+            : const <Map<String, dynamic>>[],
+      );
     } finally {
       isActivityLoading.value = false;
     }
@@ -94,10 +129,24 @@ class MonitoringController extends GetxController {
     isTrackingLoading.value = true;
     try {
       final online = await _networkInfo.isConnected;
-      final response = await _repository.getPaged(endpoint: '${ApiEndpoints.monitoringTeam}/$memberId/locations', cacheKey: 'locations_$memberId', online: online, query: const {'perPage': 100});
+      final response = await _repository.getPaged(
+        endpoint: '${ApiEndpoints.monitoringTeam}/$memberId/locations',
+        cacheKey: 'locations_$memberId',
+        online: online,
+        query: const {'perPage': 100},
+      );
       final raw = response['data'];
-      final history = raw is List ? raw.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList() : <Map<String, dynamic>>[];
-      history.sort((a, b) => (a['recordedAt']?.toString() ?? '').compareTo(b['recordedAt']?.toString() ?? ''));
+      final history = raw is List
+          ? raw
+                .whereType<Map>()
+                .map((item) => Map<String, dynamic>.from(item))
+                .toList()
+          : <Map<String, dynamic>>[];
+      history.sort(
+        (a, b) => (a['recordedAt']?.toString() ?? '').compareTo(
+          b['recordedAt']?.toString() ?? '',
+        ),
+      );
       locationHistory.assignAll(history);
     } finally {
       isTrackingLoading.value = false;

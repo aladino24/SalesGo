@@ -92,7 +92,11 @@ class MasterDataDownloadService {
     if (raw is! List) throw const FormatException('Dataset products tidak valid.');
     return raw.map((item) {
       if (item is! Map) throw const FormatException('Satu atau lebih data produk tidak valid.');
-      return ProductModel.fromJson(Map<String, dynamic>.from(item));
+      final product = ProductModel.fromJson(Map<String, dynamic>.from(item));
+      if (product.id.isEmpty || product.sku.isEmpty || product.divisionCode.isEmpty) {
+        throw const FormatException('Produk wajib memiliki ID, SKU, dan divisi sales.');
+      }
+      return product;
     }).toList();
   }
 
