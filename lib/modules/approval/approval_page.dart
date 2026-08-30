@@ -73,7 +73,7 @@ class ApprovalPage extends GetView<ApprovalController> {
                   child: Image.network(
                     photoUrl,
                     fit: BoxFit.contain,
-                    headers: {'Authorization': 'Bearer $token'},
+                    headers: {'Authorization': 'Bearer $token', 'ngrok-skip-browser-warning': 'true'},
                     loadingBuilder: (context, child, progress) => progress == null
                         ? child
                         : const Center(
@@ -149,7 +149,7 @@ class ApprovalPage extends GetView<ApprovalController> {
             ),
             child: Stack(
               children: [
-                ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.network(photoUrl, height: 190, width: double.infinity, fit: BoxFit.cover, headers: {'Authorization': 'Bearer $token'}, errorBuilder: (_, __, ___) => _PhotoPlaceholder())),
+                ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.network(photoUrl, height: 190, width: double.infinity, fit: BoxFit.cover, headers: {'Authorization': 'Bearer $token', 'ngrok-skip-browser-warning': 'true'}, errorBuilder: (_, __, ___) => _PhotoPlaceholder())),
                 const Positioned(
                   right: 10,
                   bottom: 10,
@@ -199,13 +199,28 @@ class ApprovalPage extends GetView<ApprovalController> {
 
   void _openVisitOverrideDetail(ApprovalModel item) {
     final visit = item.visit;
-    final outletName = visit?['outletName']?.toString() ??
-        visit?['outlet']?['name']?.toString() ??
+    // `outlet` dapat tidak ada pada payload lama. Jangan melakukan chained
+    // null-aware index terhadap dynamic karena dapat diparse Dart sebagai
+    // ekspresi kondisi, bukan akses Map.
+    final nestedOutlet = visit == null ? null : visit['outlet'];
+    final outlet = nestedOutlet is Map
+        ? Map<String, dynamic>.from(nestedOutlet)
+        : const <String, dynamic>{};
+    final outletName = (visit == null ? null : visit['outletName'])?.toString() ??
+        outlet['name']?.toString() ??
         'Outlet kunjungan';
-    final outletCode = visit?['outletCode']?.toString() ??
-        visit?['outlet']?['code']?.toString() ??
+    final outletCode =
+        (visit == null ? null : visit['outletCode'])?.toString() ??
+        outlet['code']?.toString() ??
         '-';
-    final distance = visit?['distanceMeters'] ?? visit?['distanceKm'];
+    final distance =
+        visit == null ? null : visit['distanceMeters'] ?? visit['distanceKm'];
+    final attachmentId =
+        (visit == null ? null : visit['photoAttachmentId'])?.toString();
+    final photoUrl = attachmentId == null || attachmentId.isEmpty
+        ? (visit == null ? null : visit['photoUrl'])?.toString()
+        : '$baseUrl/attachments/$attachmentId/content';
+    final token = Get.find<SessionService>().accessToken.value;
     Get.bottomSheet(
       SafeArea(
         child: Container(
@@ -232,6 +247,21 @@ class ApprovalPage extends GetView<ApprovalController> {
               _DetailRow('Alasan override', item.reason.isEmpty ? '-' : item.reason),
               if (distance != null) _DetailRow('Jarak saat check-in', '$distance meter'),
               _DetailRow('ID kunjungan', item.entityId),
+              if (photoUrl != null && photoUrl.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Text('Foto verifikasi outlet', style: TextStyle(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => _openPhotoOverlay(photoUrl: photoUrl, token: token, outletName: outletName),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.network(photoUrl, height: 180, width: double.infinity, fit: BoxFit.cover, headers: {'Authorization': 'Bearer $token', 'ngrok-skip-browser-warning': 'true'}, errorBuilder: (_, __, ___) => const _PhotoPlaceholder()),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text('Ketuk foto untuk melihat detail.', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+              ],
               const SizedBox(height: 8),
               const Text('Setujui hanya bila alasan dan kunjungan tersebut dapat dipertanggungjawabkan.', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
             ],

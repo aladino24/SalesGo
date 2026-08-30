@@ -409,10 +409,8 @@ class _OverviewTab extends StatelessWidget {
               ),
             ),
           ],
-          if (outlet.salesSchedules.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            OutletSalesScheduleCard(schedules: outlet.salesSchedules),
-          ],
+          const SizedBox(height: 12),
+          OutletSalesScheduleCard(schedules: outlet.salesSchedules),
           const SizedBox(height: 20),
           const SfaSectionTitle(
             title: 'Target & Pencapaian',

@@ -27,6 +27,14 @@ class _OutletSalesScheduleCardState extends State<OutletSalesScheduleCard> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [const Icon(Icons.groups_rounded, color: AppColors.primary), const SizedBox(width: 8), const Expanded(child: Text('Jadwal Sales ke Outlet', style: TextStyle(fontWeight: FontWeight.w800))), Text('${widget.schedules.length} jadwal', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary))]),
           const SizedBox(height: 10),
+          if (widget.schedules.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Belum ada jadwal sales pada master rute untuk outlet ini.',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+            ),
           ...visibleSchedules.map((schedule) {
             final mine = schedule.salesId == session.userId.value || (schedule.employeeCode.isNotEmpty && schedule.employeeCode == session.employeeCode.value);
             final day = schedule.dayOfWeek >= 1 && schedule.dayOfWeek <= 7 ? days[schedule.dayOfWeek] : 'Hari -';

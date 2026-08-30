@@ -16,7 +16,9 @@ import '../../core/sync/sync_manager.dart';
 import '../../data/datasources/local/visit_local_data_source.dart';
 import '../../data/models/outlet_model.dart';
 import '../../data/models/visit_model.dart';
+import '../../data/repositories/visit_repository.dart';
 import '../../data/repositories/visit_timeline_repository.dart';
+import 'visit_controller.dart';
 
 class CheckInPage extends StatefulWidget {
   const CheckInPage({
@@ -102,6 +104,24 @@ class _CheckInPageState extends State<CheckInPage> {
       SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'GPS diperlukan', message: _locationError ?? 'Ambil lokasi terlebih dahulu.');
       return;
     }
+    // Keputusan BM dapat diterima ketika notifikasi belum dibuka. Periksa
+    // snapshot server sebelum menampilkan alur override baru agar visit yang
+    // sudah Approved langsung kembali menjadi kunjungan aktif.
+    final approvedVisit = await _approvedVisitFromServer();
+    if (approvedVisit != null) {
+      await _localVisits.addVisit(approvedVisit);
+      if (Get.isRegistered<VisitController>()) {
+        Get.find<VisitController>().setActiveVisit(approvedVisit);
+      }
+      if (!mounted) return;
+      await SfaFeedbackDialog.show(
+        type: SfaFeedbackType.success,
+        title: 'Check-in telah disetujui',
+        message: 'Anda sudah dapat melanjutkan aktivitas di ${widget.outlet.name}.',
+      );
+      if (mounted) Get.back(result: approvedVisit);
+      return;
+    }
     if (_requiresOverrideApproval) {
       final continueOutside = await _confirmRequiredOutOfRadius();
       if (!continueOutside) return;
@@ -164,6 +184,23 @@ class _CheckInPageState extends State<CheckInPage> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  Future<VisitModel?> _approvedVisitFromServer() async {
+    try {
+      final items = await VisitRepository().getVisits(isOnline: true);
+      for (final item in items) {
+        final samePlannedVisit = widget.plannedVisitId != null &&
+            item.id == widget.plannedVisitId;
+        final sameOutlet = item.outletId == widget.outlet.id;
+        if ((samePlannedVisit || sameOutlet) && item.status == 'In Progress') {
+          return item;
+        }
+      }
+    } catch (_) {
+      // Offline tetap menggunakan proses check-in dan antrean lokal normal.
+    }
+    return null;
   }
 
   Future<void> _requestOutOfRadiusOverride() async {

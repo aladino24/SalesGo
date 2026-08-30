@@ -98,6 +98,26 @@ class VisitController extends GetxController with WidgetsBindingObserver {
     unawaited(loadRouteEstimates());
   }
 
+  /// Dipakai setelah notifikasi keputusan approval agar cache visit lokal
+  /// segera memantulkan status server (mis. Pending menjadi In Progress).
+  Future<void> refreshFromServer() async {
+    isLoading.value = true;
+    try {
+      activeJourney.value = await _journeyRepository.activeJourneyForToday();
+      final data = await _repository.getVisits(isOnline: true);
+      final hydratedVisits = await _hydrateRequiredRouteVisits(data);
+      visits.assignAll(hydratedVisits);
+      optionalRouteVisits.assignAll(
+        await _loadOptionalRouteVisits(hydratedVisits),
+      );
+      activeVisit.value = _findActive(hydratedVisits);
+      totalOutlet.value = requiredTodayVisits.length + optionalRouteVisits.length;
+    } finally {
+      isLoading.value = false;
+    }
+    unawaited(loadRouteEstimates());
+  }
+
   Future<void> loadRouteEstimates() async {
     try {
       routeEstimates.clear();

@@ -169,7 +169,11 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
   String _imageUrl(ProductModel product) {
     if (product.imageUrl.isEmpty) return '';
     if (product.imageUrl.startsWith('http')) return product.imageUrl;
-    return Uri.parse(baseUrl).resolve(product.imageUrl).toString();
+    // Backend mengirim path relatif agar aplikasi dapat tetap memakai host
+    // ngrok yang aktif. Bangun URL dari origin, bukan dari path /api/v1,
+    // karena endpoint gambar juga menyertakan prefiks /api/v1 sendiri.
+    final origin = Uri.parse(baseUrl).origin;
+    return '${origin}${product.imageUrl.startsWith('/') ? '' : '/'}${product.imageUrl}';
   }
 
   @override
