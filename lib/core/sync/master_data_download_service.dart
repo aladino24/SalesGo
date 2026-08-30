@@ -82,13 +82,26 @@ class MasterDataDownloadService {
       // Cache master rute sebelumnya tidak diganti ketika endpoint gagal.
     }
 
+    // Promosi/file bukan prasyarat untuk master produk dan outlet. Jangan
+    // batalkan snapshot atomik hanya karena salah satu endpoint tambahan
+    // sedang bermasalah; cache terakhir untuk dataset tersebut dipertahankan.
     final information = InformationRepository(apiClient: _api);
-    final promotions = await information.getPromotions(online: true);
-    final files = await information.getFiles(online: true);
+    var promotions = 0;
+    var files = 0;
+    try {
+      promotions = (await information.getPromotions(online: true)).length;
+    } catch (_) {
+      // Dataset promosi sebelumnya tetap tersedia offline.
+    }
+    try {
+      files = (await information.getFiles(online: true)).length;
+    } catch (_) {
+      // Dataset file sebelumnya tetap tersedia offline.
+    }
     return _AdditionalMasterData(
       routes: routes,
-      promotions: promotions.length,
-      files: files.length,
+      promotions: promotions,
+      files: files,
     );
   }
 

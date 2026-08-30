@@ -119,7 +119,7 @@ class _CheckInPageState extends State<CheckInPage> {
         title: 'Check-in telah disetujui',
         message: 'Anda sudah dapat melanjutkan aktivitas di ${widget.outlet.name}.',
       );
-      if (mounted) Get.back(result: approvedVisit);
+      if (mounted) Get.back<VisitModel>(result: approvedVisit);
       return;
     }
     if (_requiresOverrideApproval) {
@@ -180,7 +180,7 @@ class _CheckInPageState extends State<CheckInPage> {
 
       if (!mounted) return;
       await SfaFeedbackDialog.show(type: isOverride ? SfaFeedbackType.approval : SfaFeedbackType.success, title: isOverride ? 'Override diajukan' : 'Check-in berhasil', message: isOverride ? 'Check-in wajib di luar radius menunggu approval.' : (!_isWithinRadius ? 'Kunjungan tidak wajib di luar radius berhasil dimulai.' : 'Kunjungan outlet dimulai dan akan disinkronkan saat online.'));
-      if (mounted) Get.back(result: visit);
+      if (mounted) Get.back<VisitModel>(result: visit);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

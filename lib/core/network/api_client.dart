@@ -23,7 +23,11 @@ class ApiClient {
       ..options.baseUrl = baseUrl
       ..options.connectTimeout = Duration(milliseconds: int.parse(apiTimeout))
       ..options.receiveTimeout = Duration(milliseconds: int.parse(apiTimeout))
-      ..options.sendTimeout = Duration(milliseconds: int.parse(apiTimeout));
+      ..options.sendTimeout = Duration(milliseconds: int.parse(apiTimeout))
+      // Ngrok free dapat mengembalikan halaman interstitial HTML bila header
+      // ini tidak dikirim. Hal tersebut membuat repository fallback ke Hive
+      // lama sehingga atribut outlet (pemilik/kontak/jadwal) tampak kosong.
+      ..options.headers['ngrok-skip-browser-warning'] = 'true';
 
     // Add interceptors
     _dio.interceptors.addAll([

@@ -91,8 +91,17 @@ class SettingsController extends GetxController {
       SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Tidak dapat mengunduh', message: error.message);
     } on FormatException catch (error) {
       SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Data server tidak valid', message: error.message);
-    } catch (_) {
-      SfaFeedbackDialog.show(type: SfaFeedbackType.error, title: 'Unduhan gagal', message: 'Data lokal sebelumnya tetap digunakan. Coba lagi saat koneksi stabil.');
+    } catch (error) {
+      // Jangan sembunyikan error HTTP/timeout. Informasi ini diperlukan untuk
+      // membedakan masalah jaringan, session, dan payload backend.
+      final detail = error.toString().replaceFirst('Exception: ', '');
+      SfaFeedbackDialog.show(
+        type: SfaFeedbackType.error,
+        title: 'Unduhan gagal',
+        message: detail.isEmpty
+            ? 'Data lokal sebelumnya tetap digunakan. Coba lagi saat koneksi stabil.'
+            : '$detail\n\nData lokal sebelumnya tetap digunakan.',
+      );
     } finally {
       isDownloadingMasterData.value = false;
     }
