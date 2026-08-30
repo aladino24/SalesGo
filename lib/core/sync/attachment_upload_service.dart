@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -21,6 +22,7 @@ class AttachmentUploadService {
       }
       final attachmentKey = prepared.remove('attachmentIdempotencyKey')?.toString();
       final attachmentId = await _upload(photo, attachmentKey);
+      await _waitUntilFinalized(attachmentId);
       prepared
         ..remove('photoPath')
         ..['photoId'] = attachmentId;
@@ -39,5 +41,28 @@ class AttachmentUploadService {
     final id = response['id']?.toString() ?? response['fileId']?.toString();
     if (id == null || id.isEmpty) throw const FormatException('Server tidak mengembalikan ID lampiran.');
     return id;
+  }
+
+  /// Attachment diproses oleh worker Laravel. Check-in wajib luar radius
+  /// hanya boleh mereferensikan attachment Finalized, sehingga polling singkat
+  /// ini mencegah request visit terkirim terlalu cepat lalu gagal 422.
+  Future<void> _waitUntilFinalized(String attachmentId) async {
+    const retries = 8;
+    for (var attempt = 0; attempt < retries; attempt++) {
+      final attachment = await _api.get<Map<String, dynamic>>(
+        '${ApiEndpoints.attachments}/$attachmentId',
+      );
+      final status = attachment['status']?.toString();
+      if (status == 'Finalized') return;
+      if (status == 'Failed') {
+        throw StateError(
+          'Foto gagal diproses server: ${attachment['error'] ?? 'tidak diketahui'}',
+        );
+      }
+      await Future<void>.delayed(const Duration(seconds: 1));
+    }
+    throw StateError(
+      'Foto masih diproses server. Override akan dicoba ulang otomatis.',
+    );
   }
 }

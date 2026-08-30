@@ -11,6 +11,7 @@ import '../network/api_client.dart';
 import '../network/api_endpoints.dart';
 import '../storage/local_storage.dart';
 import '../../modules/notification/notification_controller.dart';
+import '../../app/widgets/sfa_feedback_dialog.dart';
 import 'notification_deep_link_handler.dart';
 
 @pragma('vm:entry-point')
@@ -72,9 +73,29 @@ class PushNotificationService extends GetxService {
       _openedAppSubscription = FirebaseMessaging.onMessageOpenedApp.listen(
         _openMessage,
       );
-      _foregroundMessageSubscription = FirebaseMessaging.onMessage.listen((_) {
+      _foregroundMessageSubscription = FirebaseMessaging.onMessage.listen((message) async {
         if (Get.isRegistered<NotificationController>()) {
-          Get.find<NotificationController>().load();
+          await Get.find<NotificationController>().load();
+        }
+        // Android tidak menampilkan system notification saat aplikasi berada
+        // di foreground. Tampilkan dialog aplikasi agar BM/SPV tetap langsung
+        // mengetahui approval baru, lalu buka deep link saat tombol ditekan.
+        final title = message.notification?.title ??
+            message.data['title']?.toString() ??
+            'Notifikasi baru';
+        final body = message.notification?.body ??
+            message.data['message']?.toString() ??
+            'Ada pembaruan yang perlu diperhatikan.';
+        if (!(Get.isDialogOpen ?? false)) {
+          await SfaFeedbackDialog.show(
+            type: SfaFeedbackType.info,
+            title: title,
+            message: body,
+            actionLabel: 'Lihat detail',
+            onAction: () {
+              _openMessage(message);
+            },
+          );
         }
       });
       final initialMessage = await messaging.getInitialMessage();

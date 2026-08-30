@@ -125,6 +125,13 @@ class SyncManager extends GetxController {
         await SyncStorage.addAudit(item: item, event: 'sync_conflict', message: e.message, details: e.response is Map ? Map<String, dynamic>.from(e.response as Map) : null);
       } else if (e.statusCode == 401 || e.statusCode == 403) {
         await _scheduleRetry(item, 'Auth error: ${e.message}');
+      } else if (e.statusCode == 422 &&
+          e.message.contains('Foto belum selesai diproses')) {
+        await _scheduleRetry(
+          item,
+          'Foto sedang diproses server; menunggu sebelum mengirim ulang.',
+          delay: const Duration(seconds: 15),
+        );
       } else {
         await _scheduleRetry(item, e.message);
       }
@@ -137,10 +144,16 @@ class SyncManager extends GetxController {
     }
   }
 
-  Future<void> _scheduleRetry(SyncItem item, String error) async {
+  Future<void> _scheduleRetry(
+    SyncItem item,
+    String error, {
+    Duration? delay,
+  }) async {
     final attempts = item.attemptCount + 1;
     final delayMinutes = 1 << (attempts - 1);
-    final nextAttempt = DateTime.now().add(Duration(minutes: delayMinutes > 30 ? 30 : delayMinutes));
+    final retryDelay = delay ??
+        Duration(minutes: delayMinutes > 30 ? 30 : delayMinutes);
+    final nextAttempt = DateTime.now().add(retryDelay);
     await SyncStorage.updateItemStatus(item.id, 'failed', error: error, nextAttemptAt: nextAttempt, incrementAttempt: true);
     await SyncStorage.addAudit(item: item, event: 'sync_retry_scheduled', message: error, details: {'attempts': attempts, 'nextAttemptAt': nextAttempt.toUtc().toIso8601String()});
   }

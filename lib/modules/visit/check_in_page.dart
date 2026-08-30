@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/theme/app_colors.dart';
+import '../../app/routes/app_routes.dart';
 import '../../app/widgets/sfa_open_street_map.dart';
 import '../../app/widgets/sfa_ui.dart';
 import '../../app/widgets/sfa_feedback_dialog.dart';
@@ -19,6 +20,7 @@ import '../../data/models/visit_model.dart';
 import '../../data/repositories/visit_repository.dart';
 import '../../data/repositories/visit_timeline_repository.dart';
 import 'visit_controller.dart';
+import '../home/home_controller.dart';
 
 class CheckInPage extends StatefulWidget {
   const CheckInPage({
@@ -119,7 +121,7 @@ class _CheckInPageState extends State<CheckInPage> {
         title: 'Check-in telah disetujui',
         message: 'Anda sudah dapat melanjutkan aktivitas di ${widget.outlet.name}.',
       );
-      if (mounted) Get.back<VisitModel>(result: approvedVisit);
+      await _openActiveVisit(approvedVisit);
       return;
     }
     if (_requiresOverrideApproval) {
@@ -179,10 +181,27 @@ class _CheckInPageState extends State<CheckInPage> {
       await VisitTimelineRepository().record(outletId: widget.outlet.id, visitId: visit.id, activity: 'check_in', description: isOverride ? 'Check-in wajib di luar radius menunggu approval' : (!_isWithinRadius ? 'Check-in kunjungan tidak wajib di luar radius' : 'Check-in outlet'), location: location.toJson());
 
       if (!mounted) return;
-      await SfaFeedbackDialog.show(type: isOverride ? SfaFeedbackType.approval : SfaFeedbackType.success, title: isOverride ? 'Override diajukan' : 'Check-in berhasil', message: isOverride ? 'Check-in wajib di luar radius menunggu approval.' : (!_isWithinRadius ? 'Kunjungan tidak wajib di luar radius berhasil dimulai.' : 'Kunjungan outlet dimulai dan akan disinkronkan saat online.'));
-      if (mounted) Get.back<VisitModel>(result: visit);
+      await SfaFeedbackDialog.show(type: isOverride ? SfaFeedbackType.approval : SfaFeedbackType.success, title: isOverride ? 'Override diajukan' : 'Check-in berhasil', message: isOverride ? 'Pengajuan disimpan dan sedang dikirim. Setelah diterima server, pengajuan menunggu approval Branch Manager.' : (!_isWithinRadius ? 'Kunjungan tidak wajib di luar radius berhasil dimulai.' : 'Kunjungan outlet dimulai dan akan disinkronkan saat online.'));
+      await _openActiveVisit(visit);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  /// Check-in dapat dibuka dari beberapa lapisan halaman/dialog GetX. Jangan
+  /// meneruskan VisitModel melalui `Get.back`, karena route pemanggil lama
+  /// kadang bertipe `bool` dan menghasilkan TypeError. State visit disimpan
+  /// dahulu, lalu aplikasi menuju tab Kunjungan yang otomatis terkunci pada
+  /// detail outlet aktif.
+  Future<void> _openActiveVisit(VisitModel visit) async {
+    if (Get.isRegistered<VisitController>()) {
+      Get.find<VisitController>().setActiveVisit(visit);
+    }
+    if (!mounted) return;
+    await Get.offAllNamed(AppRoutes.home);
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    if (Get.isRegistered<HomeController>()) {
+      Get.find<HomeController>().changeTab(1);
     }
   }
 
