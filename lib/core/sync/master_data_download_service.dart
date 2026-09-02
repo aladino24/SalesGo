@@ -11,56 +11,118 @@ import '../network/network_info.dart';
 import '../storage/local_storage.dart';
 
 class MasterDataDownloadService {
-  MasterDataDownloadService({ApiClient? apiClient, NetworkInfo? networkInfo, MasterLocalDataSource? localDataSource})
-      : _api = apiClient ?? Get.find<ApiClient>(),
-        _network = networkInfo ?? Get.find<NetworkInfo>(),
-        _local = localDataSource ?? MasterLocalDataSource();
+  MasterDataDownloadService({
+    ApiClient? apiClient,
+    NetworkInfo? networkInfo,
+    MasterLocalDataSource? localDataSource,
+  }) : _api = apiClient ?? Get.find<ApiClient>(),
+       _network = networkInfo ?? Get.find<NetworkInfo>(),
+       _local = localDataSource ?? MasterLocalDataSource();
 
   final ApiClient _api;
   final NetworkInfo _network;
   final MasterLocalDataSource _local;
 
-  Future<MasterDataDownloadResult> download({void Function(MasterDownloadProgress progress)? onProgress}) async {
+  Future<MasterDataDownloadResult> download({
+    void Function(MasterDownloadProgress progress)? onProgress,
+  }) async {
     if (!await _network.isConnected) {
-      throw StateError('Perangkat sedang offline. Hubungkan internet untuk mengunduh data terbaru.');
+      throw StateError(
+        'Perangkat sedang offline. Hubungkan internet untuk mengunduh data terbaru.',
+      );
     }
-    onProgress?.call(const MasterDownloadProgress(value: .1, label: 'Mengunduh snapshot master...'));
-    final response = await _api.get<Map<String, dynamic>>(ApiEndpoints.masterSnapshot);
+    onProgress?.call(
+      const MasterDownloadProgress(
+        value: .1,
+        label: 'Mengunduh snapshot master...',
+      ),
+    );
+    final response = await _api.get<Map<String, dynamic>>(
+      ApiEndpoints.masterSnapshot,
+    );
     final datasets = response['datasets'];
-    if (datasets is! Map) throw const FormatException('Snapshot master tidak memiliki datasets.');
+    if (datasets is! Map)
+      throw const FormatException('Snapshot master tidak memiliki datasets.');
 
-    onProgress?.call(const MasterDownloadProgress(value: .35, label: 'Memvalidasi produk...'));
+    onProgress?.call(
+      const MasterDownloadProgress(value: .35, label: 'Memvalidasi produk...'),
+    );
     final products = _products(datasets['products']);
-    onProgress?.call(const MasterDownloadProgress(value: .6, label: 'Memvalidasi outlet...'));
+    onProgress?.call(
+      const MasterDownloadProgress(value: .6, label: 'Memvalidasi outlet...'),
+    );
     final outlets = _outlets(datasets['outlets']);
     final orderPolicy = _orderPolicy(datasets['orderPolicy']);
 
-    onProgress?.call(const MasterDownloadProgress(value: .8, label: 'Memperbarui penyimpanan lokal...'));
-    await _local.replaceValidatedMasterData(products: products, outlets: outlets);
+    onProgress?.call(
+      const MasterDownloadProgress(
+        value: .8,
+        label: 'Memperbarui penyimpanan lokal...',
+      ),
+    );
+    await _local.replaceValidatedMasterData(
+      products: products,
+      outlets: outlets,
+    );
     await LocalStorage.appBox.put('order_policy', orderPolicy);
-    onProgress?.call(const MasterDownloadProgress(value: .88, label: 'Memperbarui promosi, file, dan master rute...'));
+    onProgress?.call(
+      const MasterDownloadProgress(
+        value: .88,
+        label: 'Memperbarui promosi, file, dan master rute...',
+      ),
+    );
     final extra = await _downloadAdditionalMasterData();
-    final generatedAt = response['generatedAt']?.toString() ?? DateTime.now().toUtc().toIso8601String();
-    await LocalStorage.appBox.put('last_master_download_at', DateTime.now().toIso8601String());
+    final generatedAt =
+        response['generatedAt']?.toString() ??
+        DateTime.now().toUtc().toIso8601String();
+    await LocalStorage.appBox.put(
+      'last_master_download_at',
+      DateTime.now().toIso8601String(),
+    );
     final localToday = DateTime.now();
-    await LocalStorage.appBox.put('last_master_download_day', '${localToday.year}-${localToday.month}-${localToday.day}');
+    await LocalStorage.appBox.put(
+      'last_master_download_day',
+      '${localToday.year}-${localToday.month}-${localToday.day}',
+    );
     await LocalStorage.appBox.put('last_master_generated_at', generatedAt);
-    await LocalStorage.appBox.put('last_master_revision', response['revision']?.toString() ?? '');
-    await LocalStorage.appBox.put('last_master_products_count', products.length);
+    await LocalStorage.appBox.put(
+      'last_master_revision',
+      response['revision']?.toString() ?? '',
+    );
+    await LocalStorage.appBox.put(
+      'last_master_products_count',
+      products.length,
+    );
     await LocalStorage.appBox.put('last_master_outlets_count', outlets.length);
     await LocalStorage.appBox.put('last_master_routes_count', extra.routes);
-    await LocalStorage.appBox.put('last_master_promotions_count', extra.promotions);
+    await LocalStorage.appBox.put(
+      'last_master_promotions_count',
+      extra.promotions,
+    );
     await LocalStorage.appBox.put('last_master_files_count', extra.files);
-    onProgress?.call(const MasterDownloadProgress(value: 1, label: 'Data terbaru siap digunakan.'));
-    return MasterDataDownloadResult(products: products.length, outlets: outlets.length, routes: extra.routes, promotions: extra.promotions, files: extra.files, generatedAt: generatedAt);
+    onProgress?.call(
+      const MasterDownloadProgress(
+        value: 1,
+        label: 'Data terbaru siap digunakan.',
+      ),
+    );
+    return MasterDataDownloadResult(
+      products: products.length,
+      outlets: outlets.length,
+      routes: extra.routes,
+      promotions: extra.promotions,
+      files: extra.files,
+      generatedAt: generatedAt,
+    );
   }
 
   Future<_AdditionalMasterData> _downloadAdditionalMasterData() async {
     var routes = 0;
     await _downloadReceivableCache();
-    await _downloadShipToLocations();
     try {
-      final assignments = await _api.get<List<dynamic>>(ApiEndpoints.routeAssignments);
+      final assignments = await _api.get<List<dynamic>>(
+        ApiEndpoints.routeAssignments,
+      );
       final records = assignments
           .whereType<Map>()
           .map((item) => Map<String, dynamic>.from(item))
@@ -74,7 +136,10 @@ class MasterDataDownloadService {
         final sales = await _api.get<List<dynamic>>(ApiEndpoints.routeSales);
         await box.put(
           'sales',
-          sales.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList(),
+          sales
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList(),
         );
       } catch (_) {
         // Sales biasa tidak selalu berhak melihat seluruh daftar sales. Cache
@@ -105,35 +170,6 @@ class MasterDataDownloadService {
       promotions: promotions,
       files: files,
     );
-  }
-
-  Future<void> _downloadShipToLocations() async {
-    try {
-      final response = await _api.get<List<dynamic>>(
-        ApiEndpoints.shipToLocations,
-      );
-      final replacement = <String, Map<String, dynamic>>{};
-      for (final raw in response) {
-        if (raw is! Map) continue;
-        final item = Map<String, dynamic>.from(raw);
-        final id = item['id']?.toString();
-        if (id != null && id.isNotEmpty) replacement[id] = item;
-      }
-      final box = Hive.isBoxOpen('ship_to_locations_cache')
-          ? Hive.box('ship_to_locations_cache')
-          : await Hive.openBox('ship_to_locations_cache');
-      final previous = Map<dynamic, dynamic>.from(box.toMap());
-      try {
-        await box.clear();
-        await box.putAll(replacement);
-      } catch (_) {
-        await box.clear();
-        await box.putAll(previous);
-        rethrow;
-      }
-    } catch (_) {
-      // Master lokasi pengiriman terakhir tetap dapat dipakai offline.
-    }
   }
 
   /// Piutang yang pernah diunduh tetap dapat dibuka saat perangkat offline.
@@ -176,34 +212,52 @@ class MasterDataDownloadService {
   }
 
   List<ProductModel> _products(dynamic raw) {
-    if (raw is! List) throw const FormatException('Dataset products tidak valid.');
+    if (raw is! List) {
+      throw const FormatException('Dataset products tidak valid.');
+    }
     return raw.map((item) {
-      if (item is! Map) throw const FormatException('Satu atau lebih data produk tidak valid.');
+      if (item is! Map) {
+        throw const FormatException('Satu atau lebih data produk tidak valid.');
+      }
       final product = ProductModel.fromJson(Map<String, dynamic>.from(item));
-      if (product.id.isEmpty || product.sku.isEmpty || product.divisionCode.isEmpty) {
-        throw const FormatException('Produk wajib memiliki ID, SKU, dan divisi sales.');
+      if (product.id.isEmpty ||
+          product.sku.isEmpty ||
+          product.divisionCode.isEmpty) {
+        throw const FormatException(
+          'Produk wajib memiliki ID, SKU, dan divisi sales.',
+        );
       }
       return product;
     }).toList();
   }
 
   List<OutletModel> _outlets(dynamic raw) {
-    if (raw is! List) throw const FormatException('Dataset outlets tidak valid.');
+    if (raw is! List)
+      throw const FormatException('Dataset outlets tidak valid.');
     return raw.map((item) {
-      if (item is! Map) throw const FormatException('Satu atau lebih data outlet tidak valid.');
+      if (item is! Map)
+        throw const FormatException('Satu atau lebih data outlet tidak valid.');
       return OutletModel.fromJson(Map<String, dynamic>.from(item));
     }).toList();
   }
 
   Map<String, dynamic> _orderPolicy(dynamic raw) {
-    if (raw is! Map) return const {
-      'minimumUnits': 1,
-      'maximumUnits': 1000,
-      'minimumAmount': 0.0,
-      'maximumAmount': 0.0,
-    };
-    final minimumUnits = _integer(raw['minimumUnits'], fallback: 1).clamp(1, 100000).toInt();
-    final maximumUnits = _integer(raw['maximumUnits'], fallback: 1000).clamp(minimumUnits, 100000).toInt();
+    if (raw is! Map) {
+      return const {
+        'minimumUnits': 1,
+        'maximumUnits': 1000,
+        'minimumAmount': 0.0,
+        'maximumAmount': 0.0,
+      };
+    }
+    final minimumUnits = _integer(
+      raw['minimumUnits'],
+      fallback: 1,
+    ).clamp(1, 100000).toInt();
+    final maximumUnits = _integer(
+      raw['maximumUnits'],
+      fallback: 1000,
+    ).clamp(minimumUnits, 100000).toInt();
     return {
       'minimumUnits': minimumUnits,
       'maximumUnits': maximumUnits,
@@ -212,10 +266,12 @@ class MasterDataDownloadService {
     };
   }
 
-  int _integer(dynamic value, {required int fallback}) =>
-      value is num ? value.toInt() : int.tryParse(value?.toString() ?? '') ?? fallback;
-  double _number(dynamic value) =>
-      value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '') ?? 0;
+  int _integer(dynamic value, {required int fallback}) => value is num
+      ? value.toInt()
+      : int.tryParse(value?.toString() ?? '') ?? fallback;
+  double _number(dynamic value) => value is num
+      ? value.toDouble()
+      : double.tryParse(value?.toString() ?? '') ?? 0;
 }
 
 class MasterDownloadProgress {
@@ -225,7 +281,14 @@ class MasterDownloadProgress {
 }
 
 class MasterDataDownloadResult {
-  const MasterDataDownloadResult({required this.products, required this.outlets, required this.routes, required this.promotions, required this.files, required this.generatedAt});
+  const MasterDataDownloadResult({
+    required this.products,
+    required this.outlets,
+    required this.routes,
+    required this.promotions,
+    required this.files,
+    required this.generatedAt,
+  });
   final int products;
   final int outlets;
   final int routes;
@@ -235,7 +298,11 @@ class MasterDataDownloadResult {
 }
 
 class _AdditionalMasterData {
-  const _AdditionalMasterData({required this.routes, required this.promotions, required this.files});
+  const _AdditionalMasterData({
+    required this.routes,
+    required this.promotions,
+    required this.files,
+  });
   final int routes;
   final int promotions;
   final int files;
