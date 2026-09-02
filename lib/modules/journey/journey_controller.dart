@@ -54,6 +54,23 @@ class JourneyController extends GetxController {
     await _refreshVisits();
   }
 
+  Future<JourneyModel> resetVisits(
+    JourneyModel item, {
+    required DateTime startsAt,
+    required DateTime endsAt,
+    String? destination,
+  }) async {
+    final replacement = await _repository.resetVisits(
+      item,
+      startsAt: startsAt,
+      endsAt: endsAt,
+      destination: destination,
+    );
+    await load();
+    await _refreshVisits();
+    return replacement;
+  }
+
   Future<void> changeStatus(
     JourneyModel item,
     String status, {

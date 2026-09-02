@@ -83,7 +83,7 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
           .toList();
       _drafts.clear();
       _page = 0;
-      if (_role == AppRole.branchManager) {
+      if (_role == AppRole.branchManager || _role == AppRole.it) {
         try {
           final response = await _api
               .get<List<dynamic>>(ApiEndpoints.routeSales)
@@ -148,7 +148,7 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
   /// Branch Manager tetap diizinkan backend untuk memiliki rute dirinya, jadi
   /// masukkan identitas sesi sebagai opsi lokal tanpa mengubah data sales lain.
   void _includeCurrentBranchManager() {
-    if (_role != AppRole.branchManager || _session.userId.value.isEmpty) return;
+    if ((_role != AppRole.branchManager && _role != AppRole.it) || _session.userId.value.isEmpty) return;
     if (_sales.any((item) => item['id']?.toString() == _session.userId.value)) {
       return;
     }
@@ -163,12 +163,12 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
   Future<void> _add() async {
     final outlets = await _master.getOutlets(isOnline: true);
     if (!mounted) return;
-    if (outlets.isEmpty || (_role == AppRole.branchManager && _sales.isEmpty)) {
+    if (outlets.isEmpty || ((_role == AppRole.branchManager || _role == AppRole.it) && _sales.isEmpty)) {
       await SfaFeedbackDialog.show(type: SfaFeedbackType.info, title: 'Data master belum lengkap', message: outlets.isEmpty ? 'Tambahkan atau setujui outlet terlebih dahulu.' : 'Belum ada sales aktif pada cabang ini.');
       return;
     }
     OutletModel outlet = outlets.first;
-    String? salesId = _role == AppRole.branchManager ? _sales.first['id']?.toString() : null;
+    String? salesId = (_role == AppRole.branchManager || _role == AppRole.it) ? _sales.first['id']?.toString() : null;
     final days = <int>{DateTime.now().weekday};
     final currentWeek = (DateTime.now().day - 1) ~/ 7 + 1;
     final weeks = <int>{currentWeek > 4 ? 4 : currentWeek};
@@ -198,7 +198,7 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
                     items: outlets.map((item) => DropdownMenuItem(value: item.id, child: Text('${item.code} • ${item.name}', overflow: TextOverflow.ellipsis))).toList(),
                     onChanged: (value) => setDialogState(() => outlet = outlets.firstWhere((item) => item.id == value)),
                   ),
-                  if (_role == AppRole.branchManager) ...[
+                  if (_role == AppRole.branchManager || _role == AppRole.it) ...[
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       value: salesId,
@@ -223,7 +223,7 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
                     return FilterChip(label: Text('Minggu $week'), selected: weeks.contains(week), onSelected: (value) => setDialogState(() => value ? weeks.add(week) : weeks.remove(week)));
                   })),
                   const SizedBox(height: 24),
-                  SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: days.isEmpty || weeks.isEmpty || (_role == AppRole.branchManager && salesId == null) ? null : () => Get.back(result: true), icon: const Icon(Icons.save_rounded), label: Text('Simpan ${days.length * weeks.length} jadwal'))),
+                  SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: days.isEmpty || weeks.isEmpty || ((_role == AppRole.branchManager || _role == AppRole.it) && salesId == null) ? null : () => Get.back(result: true), icon: const Icon(Icons.save_rounded), label: Text('Simpan ${days.length * weeks.length} jadwal'))),
                   TextButton(onPressed: () => Get.back(result: false), child: const Center(child: Text('Batal'))),
                 ],
               ),
@@ -240,7 +240,7 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
             item['outletId']?.toString() == outlet.id &&
             (item['dayOfWeek'] as num?)?.toInt() == day &&
             (item['weekOfMonth'] as num?)?.toInt() == week).toList();
-        final duplicateForSales = _role == AppRole.branchManager
+        final duplicateForSales = (_role == AppRole.branchManager || _role == AppRole.it)
             ? scheduled.any((item) => item['salesId']?.toString() == salesId)
             : scheduled.isNotEmpty;
         if (duplicateForSales || scheduled.length >= 10) {
@@ -263,7 +263,7 @@ class _RouteMasterPageState extends State<RouteMasterPage> {
     try {
       await _api.post(ApiEndpoints.routeAssignmentsBulk, data: {
         'outletId': int.parse(outlet.id),
-        if (_role == AppRole.branchManager) 'salesId': int.parse(salesId!),
+        if (_role == AppRole.branchManager || _role == AppRole.it) 'salesId': int.parse(salesId!),
         'days': days.toList(),
         'weeks': weeks.toList(),
         'isActive': true,

@@ -28,7 +28,7 @@ class ApprovalController extends GetxController {
     isLoading.value = true;
     try {
       final currentRole = _sessionService.currentRole.value;
-      final isAllowed = currentRole == AppRole.supervisor || currentRole == AppRole.branchManager;
+      final isAllowed = currentRole?.canApproveVisit ?? false;
 
       if (!isAllowed) {
         approvals.clear();

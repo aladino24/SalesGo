@@ -150,5 +150,5 @@ String _timeText(dynamic value) {
   return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
 }
 
-String _roleLabel(String? role) => switch (role) {'branchManager' => 'Branch Manager', 'supervisor' => 'Supervisor', _ => 'Sales'};
+String _roleLabel(String? role) => switch (role) {'branchManager' => 'Branch Manager', 'supervisor' => 'Supervisor', 'it' => 'IT Administrator', _ => 'Sales'};
 String _eventLabel(String? event) => (event ?? 'Aktivitas').replaceAll('_', ' ');

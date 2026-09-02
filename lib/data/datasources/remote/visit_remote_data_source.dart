@@ -15,7 +15,13 @@ class VisitRemoteDataSource {
   final SyncManager _syncManager;
 
   Future<List<VisitModel>> getVisits() async {
-    final response = await _apiClient.get<List<dynamic>>(ApiEndpoints.visits);
+    final now = DateTime.now();
+    final date =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final response = await _apiClient.get<List<dynamic>>(
+      ApiEndpoints.visits,
+      queryParameters: {'date': date},
+    );
     return response.map((item) => VisitModel.fromJson(Map<String, dynamic>.from(item as Map))).toList();
   }
 

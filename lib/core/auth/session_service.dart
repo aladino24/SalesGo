@@ -133,7 +133,7 @@ class SessionService extends GetxService {
     await Get.dialog<void>(
       AlertDialog(
         title: const Text('Sesi telah berakhir'),
-        content: const Text('Sesi login berlaku selama 5 jam. Silakan masuk kembali untuk melanjutkan.'),
+        content: const Text('Sesi login telah berakhir. Sesi berlaku maksimal 24 jam dan berakhir pukul 00:00 WIB. Silakan masuk kembali.'),
         actions: [FilledButton(onPressed: () => Get.back(), child: const Text('Ke Login'))],
       ),
       barrierDismissible: false,

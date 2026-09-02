@@ -216,31 +216,7 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
               Expanded(
                 child: FilledButton(
                   onPressed: _activeVisitId == null
-                      ? () async {
-                          final route = Get.to<VisitModel>(
-                            () => CheckInPage(
-                              outlet: outlet,
-                              plannedVisitId: widget.plannedVisitId,
-                              isRequired: widget.isRequired,
-                            ),
-                          );
-                          if (route == null) return;
-                          final visit = await route;
-                          if (visit != null &&
-                              visit.status == 'In Progress' &&
-                              mounted) {
-                            if (Get.isRegistered<VisitController>()) {
-                              Get.find<VisitController>().setActiveVisit(visit);
-                            }
-                            Get.offAllNamed(AppRoutes.home);
-                            await Future<void>.delayed(
-                              const Duration(milliseconds: 120),
-                            );
-                            if (Get.isRegistered<HomeController>()) {
-                              Get.find<HomeController>().changeTab(1);
-                            }
-                          }
-                        }
+                      ? _beginCheckIn
                       : null,
                   child: const Text('Check-in'),
                 ),
@@ -250,6 +226,43 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
         ),
       ),
     ));
+  }
+
+  Future<void> _beginCheckIn() async {
+    final visits = Get.isRegistered<VisitController>()
+        ? Get.find<VisitController>()
+        : Get.put(VisitController());
+    // Approval dapat diputuskan ketika Sales sedang membuka halaman lain.
+    // Sinkronkan lebih dulu; jika server telah mengubahnya menjadi In Progress,
+    // jangan buka form dan jangan pernah meminta override kedua.
+    await visits.refreshFromServer();
+    final active = visits.activeVisit.value;
+    if (active != null) {
+      if (!mounted) return;
+      if (active.outletId == outlet.id || active.outletName == outlet.name) {
+        setState(() => _activeVisitId = active.id);
+        await SfaFeedbackDialog.show(
+          type: SfaFeedbackType.success,
+          title: 'Check-in telah disetujui',
+          message: 'Kunjungan ${outlet.name} sudah aktif.',
+        );
+        return;
+      }
+      await SfaFeedbackDialog.show(
+        type: SfaFeedbackType.warning,
+        title: 'Kunjungan lain masih aktif',
+        message: 'Selesaikan kunjungan ${active.outletName} terlebih dahulu.',
+      );
+      return;
+    }
+    if (!mounted) return;
+    await Get.to<void>(
+      () => CheckInPage(
+        outlet: outlet,
+        plannedVisitId: widget.plannedVisitId,
+        isRequired: widget.isRequired,
+      ),
+    );
   }
 
   Future<void> _openMenuAction(_DetailMenuAction action) async {

@@ -11,6 +11,7 @@ import '../../core/sync/sync_manager.dart';
 import '../../core/sync/server_state_restore_service.dart';
 import '../../core/sync/master_data_download_service.dart';
 import '../../data/repositories/information_repository.dart';
+import '../../data/repositories/auth_repository.dart';
 import '../home/home_controller.dart';
 import '../visit/visit_controller.dart';
 import '../product/product_controller.dart';
@@ -18,6 +19,7 @@ import '../outlet/outlet_controller.dart';
 import '../information/information_controller.dart';
 import '../../app/widgets/sfa_feedback_dialog.dart';
 import '../../core/localization/app_locale.dart';
+import '../../core/update/app_update_service.dart';
 
 class SettingsController extends GetxController {
   final RxBool isDarkMode = false.obs;
@@ -30,6 +32,11 @@ class SettingsController extends GetxController {
   final RxString lastMasterDownloadSummary = ''.obs;
   final RxBool isClearingLocalData = false.obs;
   final RxString languageCode = 'id'.obs;
+  final RxString appVersionLabel = '1.0.0 (1)'.obs;
+  final RxBool isCheckingAppUpdate = false.obs;
+  final RxBool isDownloadingAppUpdate = false.obs;
+  final RxDouble appUpdateProgress = 0.0.obs;
+  final RxString appUpdateLabel = ''.obs;
 
   @override
   void onInit() {
@@ -41,12 +48,126 @@ class SettingsController extends GetxController {
     lastMasterDownloadAt.value =
         LocalStorage.appBox.get('last_master_download_at', defaultValue: '') as String;
     _loadMasterDownloadSummary();
+    Future<void>.microtask(_loadInstalledAppVersion);
+  }
+
+  Future<void> _loadInstalledAppVersion() async {
+    try {
+      final installed = await Get.find<AppUpdateService>().installedApp();
+      final name = installed['versionName']?.toString();
+      final code = installed['versionCode']?.toString();
+      if (name != null && name.isNotEmpty && code != null && code.isNotEmpty) {
+        appVersionLabel.value = '$name ($code)';
+      }
+    } catch (_) {
+      // Tampilan fallback tetap tersedia pada platform non-Android.
+    }
   }
 
   Future<void> changeLanguage(String code) async {
     if (code == languageCode.value) return;
     await AppLocale.update(code);
     languageCode.value = code;
+  }
+
+  Future<void> checkAppUpdate() async {
+    if (isCheckingAppUpdate.value || isDownloadingAppUpdate.value) return;
+    isCheckingAppUpdate.value = true;
+    try {
+      final update = await Get.find<AppUpdateService>().check();
+      if (!update.available) {
+        await SfaFeedbackDialog.show(
+          type: SfaFeedbackType.success,
+          title: 'Aplikasi terbaru',
+          message: 'Versi aplikasi yang terpasang sudah sama dengan rilis backend.',
+        );
+        return;
+      }
+      final accepted = await Get.dialog<bool>(AlertDialog(
+        title: const Text('Pembaruan tersedia'),
+        content: Text(
+          'Versi ${update.versionName} tersedia (${_formatBytes(update.sizeBytes)}).'
+          '${update.notes.isEmpty ? '' : '\n\n${update.notes}'}\n\n'
+          'Data lokal dan sesi aplikasi tidak akan dihapus saat Android memasang pembaruan.',
+        ),
+        actions: [
+          if (!update.mandatory)
+            TextButton(onPressed: () => Get.back(result: false), child: const Text('Nanti')),
+          FilledButton(onPressed: () => Get.back(result: true), child: const Text('Unduh & Instal')),
+        ],
+      ));
+      if (accepted == true) await _downloadAndInstall(update);
+    } catch (error) {
+      await SfaFeedbackDialog.show(
+        type: SfaFeedbackType.error,
+        title: 'Pemeriksaan update gagal',
+        message: error.toString().replaceFirst('Exception: ', ''),
+      );
+    } finally {
+      isCheckingAppUpdate.value = false;
+    }
+  }
+
+  Future<void> _downloadAndInstall(AppUpdateInfo update) async {
+    isDownloadingAppUpdate.value = true;
+    appUpdateProgress.value = 0;
+    appUpdateLabel.value = 'Menyiapkan unduhan APK...';
+    Get.dialog(
+      Obx(() => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: const Text('Mengunduh pembaruan'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 72,
+                height: 72,
+                child: CircularProgressIndicator(value: appUpdateProgress.value, strokeWidth: 7),
+              ),
+              const SizedBox(height: 16),
+              Text('${(appUpdateProgress.value * 100).round()}%', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              Text(appUpdateLabel.value, textAlign: TextAlign.center),
+            ],
+          ),
+        ),
+      )),
+      barrierDismissible: false,
+    );
+    try {
+      await Get.find<AppUpdateService>().downloadAndInstall(
+        update,
+        onProgress: (received, total) {
+          if (total > 0) {
+            appUpdateProgress.value = received / total;
+            appUpdateLabel.value = '${_formatBytes(received)} dari ${_formatBytes(total)}';
+          } else {
+            appUpdateLabel.value = '${_formatBytes(received)} diunduh';
+          }
+        },
+      );
+      if (Get.isDialogOpen == true) Get.back();
+      await SfaFeedbackDialog.show(
+        type: SfaFeedbackType.success,
+        title: 'Siap diinstal',
+        message: 'Installer Android telah dibuka. Konfirmasi Update untuk mengganti aplikasi tanpa menghapus data lokal.',
+      );
+    } catch (error) {
+      if (Get.isDialogOpen == true) Get.back();
+      await SfaFeedbackDialog.show(
+        type: SfaFeedbackType.error,
+        title: 'Update gagal',
+        message: error.toString().replaceFirst('Exception: ', ''),
+      );
+    } finally {
+      isDownloadingAppUpdate.value = false;
+    }
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
   void showAccount() {
     SfaFeedbackDialog.show(type: SfaFeedbackType.info, title: 'Account', message: 'Informasi user dan role akan ditampilkan di sini.');
@@ -141,6 +262,11 @@ class SettingsController extends GetxController {
 
   Future<void> logout() async {
     await Get.find<PushNotificationService>().stop();
+    try {
+      await AuthRepository().logout();
+    } catch (_) {
+      // Sesi di server akan kedaluwarsa otomatis bila perangkat sedang offline.
+    }
     if (Get.isRegistered<NotificationController>()) {
       Get.delete<NotificationController>(force: true);
     }

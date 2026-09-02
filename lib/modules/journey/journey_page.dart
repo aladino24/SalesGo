@@ -159,6 +159,48 @@ class JourneyPage extends GetView<JourneyController> {
     }
   }
 
+  Future<void> _resetVisits(BuildContext context, JourneyModel item) async {
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDateRange: DateTimeRange(start: item.startAt, end: item.endAt),
+      helpText: 'Pilih periode kunjungan yang benar',
+    );
+    if (range == null) return;
+    final confirmed = await Get.dialog<bool>(
+      AlertDialog(
+        title: const Text('Reset periode kunjungan?'),
+        content: const Text(
+          'Rencana outlet yang belum dikerjakan pada periode lama akan dibatalkan dan rencana baru dibuat. Riwayat check-in, check-out, dan aktivitas sebelumnya tidak dihapus.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Get.back(result: false), child: const Text('Batal')),
+          FilledButton(onPressed: () => Get.back(result: true), child: const Text('Reset')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final replacement = await controller.resetVisits(
+        item,
+        startsAt: range.start,
+        endsAt: range.end,
+      );
+      await SfaFeedbackDialog.show(
+        type: SfaFeedbackType.success,
+        title: 'Periode berhasil direset',
+        message: 'Rencana baru ${replacement.startAt.day}/${replacement.startAt.month}/${replacement.startAt.year} - ${replacement.endAt.day}/${replacement.endAt.month}/${replacement.endAt.year} siap dimulai. Data sebelumnya tetap tersimpan.',
+      );
+    } catch (error) {
+      await SfaFeedbackDialog.show(
+        type: SfaFeedbackType.error,
+        title: 'Reset kunjungan gagal',
+        message: error.toString().replaceFirst('Bad state: ', ''),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
@@ -277,6 +319,17 @@ class JourneyPage extends GetView<JourneyController> {
                           label: const Text('Akhiri Perjalanan'),
                         ),
                       ),
+                    if (item.status == 'Planned' || item.status == 'Active') ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton.icon(
+                          onPressed: () => _resetVisits(context, item),
+                          icon: const Icon(Icons.restart_alt_rounded),
+                          label: const Text('Reset Periode Kunjungan'),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

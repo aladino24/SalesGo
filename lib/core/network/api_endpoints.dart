@@ -42,5 +42,7 @@ abstract final class ApiEndpoints {
   static const routeEstimate = '/routes/estimate';
   static const journeys = '/journeys';
   static const currentJourney = '/journeys/current';
+  static const journeyResetVisits = '/reset-visits';
   static const deliveryNotes = '/delivery-notes';
+  static const appUpdateCheck = '/app-updates/android/check';
 }

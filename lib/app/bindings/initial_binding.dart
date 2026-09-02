@@ -12,6 +12,7 @@ import '../../core/sync/server_state_restore_service.dart';
 import '../../core/sync/master_data_download_service.dart';
 import '../../core/sync/master_auto_download_service.dart';
 import '../../core/location/location_tracking_service.dart';
+import '../../core/update/app_update_service.dart';
 import '../../modules/notification/notification_controller.dart';
 
 class InitialBinding extends Bindings {
@@ -50,6 +51,7 @@ class InitialBinding extends Bindings {
       ),
     );
     Get.put<MasterDataDownloadService>(MasterDataDownloadService());
+    Get.put(AppUpdateService(), permanent: true);
     Get.put(
       MasterAutoDownloadService(
         downloader: Get.find<MasterDataDownloadService>(),

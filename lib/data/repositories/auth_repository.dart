@@ -16,9 +16,15 @@ class AuthRepository {
 
   Future<AuthSessionModel> refresh(String refreshToken) => _remoteDataSource.refresh(refreshToken);
 
+  Future<void> logout() => _usesDevelopmentFallback ? Future.value() : _remoteDataSource.logout();
+
   AuthSessionModel _developmentSession(String username) {
     final normalized = username.toLowerCase();
-    final role = normalized.contains('supervisor')
+    final role = normalized == 'it' || normalized.contains('administrator')
+        ? AppRole.it
+        : normalized.contains('marketing')
+        ? AppRole.marketing
+        : normalized.contains('supervisor')
         ? AppRole.supervisor
         : normalized.contains('manager')
             ? AppRole.branchManager
@@ -30,7 +36,16 @@ class AuthRepository {
       refreshToken: 'development-refresh-$normalized',
       userName: username.isEmpty ? 'Sales' : username,
       role: role,
-      expiresAt: DateTime.now().add(const Duration(hours: 8)),
+      expiresAt: _developmentSessionExpiry(),
     );
+  }
+
+  DateTime _developmentSessionExpiry() {
+    final now = DateTime.now();
+    // Batas dev mengikuti aturan produksi: paling lambat tengah malam waktu
+    // perangkat, dan tidak lebih dari 24 jam dari waktu login.
+    final midnight = DateTime(now.year, now.month, now.day + 1);
+    final max = now.add(const Duration(hours: 24));
+    return midnight.isBefore(max) ? midnight : max;
   }
 }

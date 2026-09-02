@@ -25,8 +25,9 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
   final _repository = SalesOrderRepository();
   final _master = MasterRepository();
   final _search = TextEditingController();
-  final _cart = <String, int>{};
+  final _cart = <String, _CartLine>{};
   final _selectedVariantByFamily = <String, String>{};
+  final _selectedUomByProduct = <String, String>{};
   List<ProductModel> _products = const [];
   bool _loading = true;
   bool _saving = false;
@@ -103,10 +104,17 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
     return family.products.firstWhereOrNull((item) => item.id == selectedId) ?? family.products.first;
   }
 
-  List<ProductModel> get _cartProducts => _products.where((item) => (_cart[item.id] ?? 0) > 0).toList();
-  int get _itemCount => _cart.values.fold(0, (sum, item) => sum + item);
-  int get _totalUnits => _itemCount;
-  double get _total => _cartProducts.fold(0, (sum, product) => sum + product.price * (_cart[product.id] ?? 0));
+  ProductUomModel _selectedUom(ProductModel product) {
+    final selectedId = _selectedUomByProduct[product.id];
+    return product.sellableUoms.firstWhereOrNull((item) => item.id == selectedId) ?? product.defaultUom;
+  }
+
+  String _cartKey(ProductModel product, ProductUomModel uom) => '${product.id}|${uom.id.isEmpty ? uom.code : uom.id}';
+  int _cartQuantity(ProductModel product, ProductUomModel uom) => _cart[_cartKey(product, uom)]?.quantity ?? 0;
+  List<_CartLine> get _cartLines => _cart.values.toList()..sort((a, b) => a.product.name.compareTo(b.product.name));
+  int get _itemCount => _cart.values.fold(0, (sum, item) => sum + item.quantity);
+  int get _totalUnits => _cart.values.fold(0, (sum, item) => sum + item.baseQuantity);
+  double get _total => _cart.values.fold(0, (sum, item) => sum + item.subtotal);
   List<String> get _divisions => _products.map((item) => item.divisionCode).where((item) => item.isNotEmpty).toSet().toList()..sort();
 
   String _divisionLabel(String code) {
@@ -114,23 +122,28 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
     return product == null || product.divisionName.isEmpty ? 'Divisi $code' : product.divisionName;
   }
 
-  void _changeQuantity(ProductModel product, int delta) {
-    final next = (_cart[product.id] ?? 0) + delta;
-    if (delta > 0 && next > product.stock) {
-      SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'Stok tidak cukup', message: 'Stok ${product.name} tersedia ${product.stock} ${product.uom.isEmpty ? 'unit' : product.uom}.');
+  void _changeQuantity(ProductModel product, ProductUomModel uom, int delta) {
+    final key = _cartKey(product, uom);
+    final next = (_cart[key]?.quantity ?? 0) + delta;
+    final nextBaseQuantity = next * uom.conversionToBase;
+    final otherBaseQuantity = _cart.entries
+        .where((entry) => entry.key != key && entry.value.product.id == product.id)
+        .fold(0, (sum, entry) => sum + entry.value.baseQuantity);
+    if (delta > 0 && otherBaseQuantity + nextBaseQuantity > product.stock) {
+      SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'Stok tidak cukup', message: 'Stok ${product.name} tersedia ${product.stock} satuan dasar. 1 ${uom.code} = ${uom.conversionToBase} satuan dasar.');
       return;
     }
     setState(() {
       if (next <= 0) {
-        _cart.remove(product.id);
+        _cart.remove(key);
       } else {
-        _cart[product.id] = next;
+        _cart[key] = _CartLine(product: product, uom: uom, quantity: next);
       }
     });
   }
 
   Future<void> _submit() async {
-    final selected = _cartProducts;
+    final selected = _cartLines;
     if (selected.isEmpty) {
       await SfaFeedbackDialog.show(type: SfaFeedbackType.warning, title: 'Cart masih kosong', message: 'Pilih minimal satu produk untuk membuat order.');
       return;
@@ -150,7 +163,7 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
         id: 'SO-${uuid.v4()}',
         outletId: widget.outlet.id,
         outletName: widget.outlet.name,
-        items: selected.map((product) => SalesOrderItem(productId: product.id, productName: product.name, quantity: _cart[product.id]!, unitPrice: product.price)).toList(),
+        items: selected.map((line) => SalesOrderItem(productId: line.product.id, productName: line.product.name, productUomId: line.uom.id, uomCode: line.uom.code, uomName: line.uom.name, conversionToBase: line.uom.conversionToBase, baseQuantity: line.baseQuantity, quantity: line.quantity, unitPrice: line.uom.price)).toList(),
         total: _total,
         status: 'Pending Sync',
         createdAt: DateTime.now(),
@@ -223,19 +236,22 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
                           onRefresh: _loadProducts,
                           child: GridView.builder(
                             padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: count, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: .57),
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: count, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: .48),
                             itemCount: families.length,
                             itemBuilder: (_, index) {
                               final family = families[index];
                               final selected = _selectedProduct(family);
+                              final selectedUom = _selectedUom(selected);
                               return _ProductFamilyCard(
                                 family: family,
                                 product: selected,
-                                quantity: _cart[selected.id] ?? 0,
+                                uom: selectedUom,
+                                quantity: _cartQuantity(selected, selectedUom),
                                 imageUrl: _imageUrl(selected),
-                                cartVariants: family.products.where((item) => (_cart[item.id] ?? 0) > 0).length,
-                                onSelected: (product) => setState(() => _selectedVariantByFamily[family.key] = product.id),
-                                onChange: (delta) => _changeQuantity(selected, delta),
+                                cartVariants: family.products.where((item) => _cart.values.any((line) => line.product.id == item.id)).length,
+                                onSelected: (product) => setState(() { _selectedVariantByFamily[family.key] = product.id; _selectedUomByProduct.putIfAbsent(product.id, () => product.defaultUom.id); }),
+                                onUomSelected: (uom) => setState(() => _selectedUomByProduct[selected.id] = uom.id),
+                                onChange: (delta) => _changeQuantity(selected, selectedUom, delta),
                               );
                             },
                           ),
@@ -248,21 +264,20 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
   }
 
   Future<void> _showCart() async {
-    if (_cartProducts.isEmpty) return;
+    if (_cartLines.isEmpty) return;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetContext) => StatefulBuilder(
         builder: (_, setSheetState) => _OrderCartSheet(
-          items: _cartProducts,
-          quantities: _cart,
+          items: _cartLines,
           total: _total,
           units: _totalUnits,
           minimumUnits: _minimumUnits,
           maximumUnits: _maximumUnits,
-          onChange: (product, delta) {
-            _changeQuantity(product, delta);
+          onChange: (line, delta) {
+            _changeQuantity(line.product, line.uom, delta);
             setSheetState(() {});
           },
           onSubmit: () async {
@@ -302,14 +317,25 @@ class _ProductFamily {
   final List<ProductModel> products;
 }
 
+class _CartLine {
+  const _CartLine({required this.product, required this.uom, required this.quantity});
+  final ProductModel product;
+  final ProductUomModel uom;
+  final int quantity;
+  int get baseQuantity => quantity * uom.conversionToBase;
+  double get subtotal => uom.price * quantity;
+}
+
 class _ProductFamilyCard extends StatelessWidget {
-  const _ProductFamilyCard({required this.family, required this.product, required this.quantity, required this.imageUrl, required this.cartVariants, required this.onSelected, required this.onChange});
+  const _ProductFamilyCard({required this.family, required this.product, required this.uom, required this.quantity, required this.imageUrl, required this.cartVariants, required this.onSelected, required this.onUomSelected, required this.onChange});
   final _ProductFamily family;
   final ProductModel product;
+  final ProductUomModel uom;
   final int quantity;
   final String imageUrl;
   final int cartVariants;
   final ValueChanged<ProductModel> onSelected;
+  final ValueChanged<ProductUomModel> onUomSelected;
   final ValueChanged<int> onChange;
 
   @override
@@ -336,16 +362,28 @@ class _ProductFamilyCard extends StatelessWidget {
                 onChanged: (item) { if (item != null) onSelected(item); },
               ),
             ),
+            DropdownButtonHideUnderline(
+              child: DropdownButton<ProductUomModel>(
+                isExpanded: true,
+                isDense: true,
+                value: uom,
+                items: product.sellableUoms.map((item) => DropdownMenuItem(
+                  value: item,
+                  child: Text('${item.code} • Rp ${item.price.toStringAsFixed(0)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                )).toList(),
+                onChanged: (item) { if (item != null) onUomSelected(item); },
+              ),
+            ),
             const SizedBox(height: 4),
-            Text('${product.size}${product.uom.isEmpty ? '' : ' • ${product.uom}'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10)),
+            Text('${product.size} • 1 ${uom.code} = ${uom.conversionToBase} unit', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10)),
             const SizedBox(height: 4),
-            Text('Rp ${product.price.toStringAsFixed(0)}', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800)),
+            Text('Rp ${uom.price.toStringAsFixed(0)} / ${uom.code}', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800)),
             Text('Stok ${product.stock}', style: TextStyle(fontSize: 10, color: product.stock > 0 ? AppColors.success : AppColors.danger)),
             const SizedBox(height: 5),
             if (quantity == 0)
               SizedBox(width: double.infinity, child: FilledButton.tonal(onPressed: product.stock > 0 ? () => onChange(1) : null, child: const Text('Tambah')))
             else
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [IconButton(visualDensity: VisualDensity.compact, onPressed: () => onChange(-1), icon: const Icon(Icons.remove_circle_outline)), Text('$quantity', style: const TextStyle(fontWeight: FontWeight.w800)), IconButton(visualDensity: VisualDensity.compact, onPressed: quantity < product.stock ? () => onChange(1) : null, icon: const Icon(Icons.add_circle, color: AppColors.primary))]),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [IconButton(visualDensity: VisualDensity.compact, onPressed: () => onChange(-1), icon: const Icon(Icons.remove_circle_outline)), Text('$quantity ${uom.code}', style: const TextStyle(fontWeight: FontWeight.w800)), IconButton(visualDensity: VisualDensity.compact, onPressed: (quantity + 1) * uom.conversionToBase <= product.stock ? () => onChange(1) : null, icon: const Icon(Icons.add_circle, color: AppColors.primary))]),
           ]),
         ),
       );
@@ -383,12 +421,11 @@ class _OrderCartBar extends StatelessWidget {
 }
 
 class _OrderCartSheet extends StatelessWidget {
-  const _OrderCartSheet({required this.items, required this.quantities, required this.total, required this.units, required this.minimumUnits, required this.maximumUnits, required this.onChange, required this.onSubmit});
-  final List<ProductModel> items;
-  final Map<String, int> quantities;
+  const _OrderCartSheet({required this.items, required this.total, required this.units, required this.minimumUnits, required this.maximumUnits, required this.onChange, required this.onSubmit});
+  final List<_CartLine> items;
   final double total;
   final int units, minimumUnits, maximumUnits;
-  final void Function(ProductModel product, int delta) onChange;
+  final void Function(_CartLine line, int delta) onChange;
   final Future<void> Function() onSubmit;
 
   @override
@@ -398,15 +435,16 @@ class _OrderCartSheet extends StatelessWidget {
           child: Column(children: [
             const Padding(padding: EdgeInsets.fromLTRB(20, 4, 20, 12), child: Row(children: [Icon(Icons.shopping_cart_checkout_rounded, color: AppColors.primary), SizedBox(width: 10), Text('Rincian Cart', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))])),
             Expanded(child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal: 16), itemCount: items.length, separatorBuilder: (_, __) => const Divider(height: 1), itemBuilder: (_, index) {
-              final product = items[index];
-              final quantity = quantities[product.id] ?? 0;
+              final line = items[index];
+              final product = line.product;
+              final quantity = line.quantity;
               return ListTile(
                 contentPadding: const EdgeInsets.symmetric(vertical: 5),
                 leading: CircleAvatar(backgroundColor: AppColors.primarySoft, child: Text('${index + 1}', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800))),
                 title: Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text('Rp ${product.price.toStringAsFixed(0)} × $quantity\nSubtotal Rp ${(product.price * quantity).toStringAsFixed(0)}'),
+                subtitle: Text('Rp ${line.uom.price.toStringAsFixed(0)} / ${line.uom.code} × $quantity\nSubtotal Rp ${line.subtotal.toStringAsFixed(0)} • ${line.baseQuantity} unit dasar'),
                 isThreeLine: true,
-                trailing: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(onPressed: () => onChange(product, -1), icon: const Icon(Icons.remove_circle_outline)), Text('$quantity', style: const TextStyle(fontWeight: FontWeight.w800)), IconButton(onPressed: quantity < product.stock ? () => onChange(product, 1) : null, icon: const Icon(Icons.add_circle, color: AppColors.primary))]),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(onPressed: () => onChange(line, -1), icon: const Icon(Icons.remove_circle_outline)), Text('$quantity', style: const TextStyle(fontWeight: FontWeight.w800)), IconButton(onPressed: (quantity + 1) * line.uom.conversionToBase <= product.stock ? () => onChange(line, 1) : null, icon: const Icon(Icons.add_circle, color: AppColors.primary))]),
               );
             })),
             Container(

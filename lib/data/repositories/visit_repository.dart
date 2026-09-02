@@ -42,6 +42,9 @@ class VisitRepository {
     for (final item in local) {
       // Check-in/out/tunda/batal lokal dapat masih mengantre ke server. Jangan
       // mengembalikan status lokal tersebut menjadi Planned dari snapshot lama.
+      // Sebaliknya, keputusan server tidak boleh tertahan oleh cache Pending.
+      // Contoh: BM menyetujui override, lalu server mengubah status menjadi
+      // In Progress. Status tersebut harus langsung menggantikan Pending lokal.
       final serverItem = merged[item.id];
       if (item.status != 'Planned' &&
           (serverItem == null || serverItem.status == 'Planned')) {
@@ -60,11 +63,32 @@ class VisitRepository {
           : '${planned.year}-${planned.month}-${planned.day}';
       final key = '${visit.outletId ?? visit.outletName}|$dateKey|${visit.isRequired}';
       final existing = unique[key];
-      if (existing == null || visit.createdAt.isAfter(existing.createdAt)) {
+      if (existing == null ||
+          _statusPriority(visit.status) > _statusPriority(existing.status) ||
+          (_statusPriority(visit.status) == _statusPriority(existing.status) &&
+              visit.createdAt.isAfter(existing.createdAt))) {
         unique[key] = visit;
       }
     }
     return unique.values.toList();
+  }
+
+  /// Status server yang sudah final/aktif tidak boleh kalah dari entri Hive
+  /// yang lebih baru secara waktu tetapi masih Pending akibat offline sync.
+  int _statusPriority(String status) {
+    switch (status) {
+      case 'In Progress':
+        return 5;
+      case 'Completed':
+      case 'Suspended':
+      case 'Cancelled':
+        return 4;
+      case 'Pending':
+        return 3;
+      case 'Planned':
+      default:
+        return 1;
+    }
   }
 
   Future<void> createVisit(VisitModel visit, {required bool isOnline}) async {

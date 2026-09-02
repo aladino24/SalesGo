@@ -1,11 +1,15 @@
 class SalesOrderItem {
-  const SalesOrderItem({required this.productId, required this.productName, required this.quantity, required this.unitPrice, this.discount = 0});
+  const SalesOrderItem({required this.productId, required this.productName, required this.quantity, required this.unitPrice, this.productUomId, this.uomCode = '', this.uomName = '', this.conversionToBase = 1, this.baseQuantity, this.discount = 0});
   final String productId, productName;
-  final int quantity;
+  final String? productUomId;
+  final String uomCode, uomName;
+  final int quantity, conversionToBase;
+  final int? baseQuantity;
   final double unitPrice, discount;
   double get subtotal => (unitPrice * quantity) - discount;
-  factory SalesOrderItem.fromJson(Map<String, dynamic> json) => SalesOrderItem(productId: json['productId']?.toString() ?? '', productName: json['productName']?.toString() ?? '-', quantity: _integer(json['quantity']), unitPrice: _number(json['unitPrice']), discount: _number(json['discount']));
-  Map<String, dynamic> toJson() => {'productId': productId, 'productName': productName, 'quantity': quantity, 'unitPrice': unitPrice, 'discount': discount, 'subtotal': subtotal};
+  int get effectiveBaseQuantity => baseQuantity ?? quantity * conversionToBase;
+  factory SalesOrderItem.fromJson(Map<String, dynamic> json) => SalesOrderItem(productId: json['productId']?.toString() ?? '', productName: json['productName']?.toString() ?? '-', productUomId: json['productUomId']?.toString(), uomCode: json['uomCode']?.toString() ?? '', uomName: json['uomName']?.toString() ?? '', conversionToBase: _integer(json['conversionToBase']) <= 0 ? 1 : _integer(json['conversionToBase']), baseQuantity: json['baseQuantity'] == null ? null : _integer(json['baseQuantity']), quantity: _integer(json['quantity']), unitPrice: _number(json['unitPrice']), discount: _number(json['discount']));
+  Map<String, dynamic> toJson() => {'productId': productId, 'productName': productName, if (productUomId?.isNotEmpty == true) 'productUomId': productUomId, if (uomCode.isNotEmpty) 'uomCode': uomCode, if (uomName.isNotEmpty) 'uomName': uomName, 'conversionToBase': conversionToBase, 'baseQuantity': effectiveBaseQuantity, 'quantity': quantity, 'unitPrice': unitPrice, 'discount': discount, 'subtotal': subtotal};
 
   static int _integer(dynamic value) => value is num ? value.toInt() : int.tryParse(value?.toString() ?? '') ?? 0;
   static double _number(dynamic value) => value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '') ?? 0;

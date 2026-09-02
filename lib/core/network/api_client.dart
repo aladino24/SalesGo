@@ -167,6 +167,26 @@ class ApiClient {
     }
   }
 
+  /// Mengunduh file biner melalui Dio yang sama agar Authorization dan header
+  /// ngrok tetap ikut terkirim. Dipakai antara lain untuk APK internal.
+  Future<void> download(
+    String endpoint,
+    String savePath, {
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    try {
+      await _dio.download(
+        endpoint,
+        savePath,
+        onReceiveProgress: onReceiveProgress,
+        options: Options(responseType: ResponseType.bytes),
+      );
+    } on DioException catch (e) {
+      _handleError(e);
+      rethrow;
+    }
+  }
+
   void _handleError(DioException e) {
     if (e.error is ApiException) {
       throw e.error as ApiException;

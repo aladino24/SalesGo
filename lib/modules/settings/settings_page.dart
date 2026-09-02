@@ -108,10 +108,26 @@ class SettingsPage extends GetView<SettingsController> {
               value: 'light'.tr,
               onTap: controller.changeTheme,
             ),
-            _SettingTile(
-              icon: Icons.info_outline_rounded,
-              label: 'app_version'.tr,
-              value: '1.0.0 (100)',
+            Obx(
+              () => _SettingTile(
+                icon: Icons.info_outline_rounded,
+                label: 'app_version'.tr,
+                value: controller.appVersionLabel.value,
+              ),
+            ),
+            Obx(
+              () => _SettingTile(
+                icon: Icons.system_update_rounded,
+                label: controller.isCheckingAppUpdate.value || controller.isDownloadingAppUpdate.value
+                    ? 'Memeriksa pembaruan...'
+                    : 'Periksa update aplikasi',
+                value: controller.isDownloadingAppUpdate.value
+                    ? '${(controller.appUpdateProgress.value * 100).round()}%'
+                    : null,
+                onTap: controller.isCheckingAppUpdate.value || controller.isDownloadingAppUpdate.value
+                    ? null
+                    : controller.checkAppUpdate,
+              ),
             ),
             _SettingTile(
               icon: Icons.sync_rounded,

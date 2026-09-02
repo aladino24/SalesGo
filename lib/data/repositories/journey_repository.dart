@@ -152,6 +152,43 @@ class JourneyRepository {
     await _recordActivity(resolved, 'Active');
   }
 
+  /// Reset periode wajib dilakukan online karena server membatalkan rencana
+  /// lama tanpa menghapus riwayat, lalu membuat journey pengganti.
+  Future<JourneyModel> resetVisits(
+    JourneyModel item, {
+    required DateTime startsAt,
+    required DateTime endsAt,
+    String? destination,
+  }) async {
+    if (!await _network.isConnected) {
+      throw StateError('Reset kunjungan memerlukan koneksi internet agar riwayat lama tetap aman di server.');
+    }
+    final resolved = await _resolveServerJourney(item);
+    final serverId = resolved.serverId;
+    if (serverId == null || serverId.isEmpty) {
+      throw StateError('Perjalanan belum tersinkron ke server.');
+    }
+    const uuid = Uuid();
+    final response = await _api.post<dynamic>(
+      '${ApiEndpoints.journeys}/$serverId${ApiEndpoints.journeyResetVisits}',
+      data: {
+        'startsAt': startsAt.toIso8601String(),
+        'endsAt': endsAt.toIso8601String(),
+        if (destination != null && destination.trim().isNotEmpty)
+          'destination': destination.trim(),
+      },
+      idempotencyKey: uuid.v4(),
+    );
+    if (response is! Map || response['journey'] is! Map) {
+      throw const FormatException('Respons reset kunjungan dari server tidak valid.');
+    }
+    final replacement = JourneyModel.fromJson(
+      Map<String, dynamic>.from(response['journey'] as Map),
+    );
+    await (await _box).put(replacement.id, replacement.toJson());
+    return replacement;
+  }
+
   Future<JourneyModel> _resolveServerJourney(JourneyModel item) async {
     final online = await _network.isConnected;
     if (online) {
