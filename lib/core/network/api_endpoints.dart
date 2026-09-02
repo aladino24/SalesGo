@@ -24,6 +24,10 @@ abstract final class ApiEndpoints {
   // A payment is posted to /receivables/{invoiceId}/payments. This base is
   // retained for UI code that resolves the selected invoice first.
   static const receivablePayments = '/receivables';
+  static const payments = '/payments';
+  static const paymentReceivablesSnapshot = '/payments/receivables-snapshot';
+  static const collectionActivities = '/collection-activities';
+  static String outletPaymentSummary(String outletId) => '/outlets/$outletId/payment-summary';
   static const deferVisit = '/visits/defer';
   static const cancelVisit = '/visits/cancel';
   static const visitApprovals = '/approvals/visits';

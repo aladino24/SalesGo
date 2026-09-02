@@ -57,6 +57,7 @@ class MasterDataDownloadService {
 
   Future<_AdditionalMasterData> _downloadAdditionalMasterData() async {
     var routes = 0;
+    await _downloadReceivableCache();
     try {
       final assignments = await _api.get<List<dynamic>>(ApiEndpoints.routeAssignments);
       final records = assignments
@@ -103,6 +104,45 @@ class MasterDataDownloadService {
       promotions: promotions,
       files: files,
     );
+  }
+
+  /// Piutang yang pernah diunduh tetap dapat dibuka saat perangkat offline.
+  /// Cache ini hanya untuk tampilan dan pengisian formulir; backend tetap
+  /// memvalidasi saldo faktur kembali ketika pembayaran disinkronkan.
+  Future<void> _downloadReceivableCache() async {
+    try {
+      final response = await _api.get<Map<String, dynamic>>(
+        ApiEndpoints.paymentReceivablesSnapshot,
+      );
+      final rawItems = response['items'];
+      if (rawItems is! List) return;
+      final box = Hive.isBoxOpen('payment_receivables_cache')
+          ? Hive.box('payment_receivables_cache')
+          : await Hive.openBox('payment_receivables_cache');
+      final replacement = <String, Map<String, dynamic>>{};
+      for (final raw in rawItems) {
+        if (raw is! Map) continue;
+        final item = Map<String, dynamic>.from(raw);
+        final outlet = item['outlet'];
+        if (outlet is! Map) continue;
+        final outletId = outlet['id']?.toString();
+        if (outletId == null || outletId.isEmpty) continue;
+        replacement[outletId] = item;
+      }
+      if (replacement.isEmpty && rawItems.isNotEmpty) return;
+      final previous = Map<dynamic, dynamic>.from(box.toMap());
+      try {
+        await box.clear();
+        await box.putAll(replacement);
+      } catch (_) {
+        await box.clear();
+        await box.putAll(previous);
+        rethrow;
+      }
+    } catch (_) {
+      // Dataset piutang tambahan tidak boleh merusak snapshot master yang
+      // telah tervalidasi. Cache pembayaran terakhir tetap dipertahankan.
+    }
   }
 
   List<ProductModel> _products(dynamic raw) {

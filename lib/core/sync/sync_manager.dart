@@ -1,5 +1,6 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:get/get.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../data/models/sync_item_model.dart';
 import '../network/api_client.dart';
@@ -111,7 +112,21 @@ class SyncManager extends GetxController {
       if (payload.toString() != item.payload.toString()) {
         await SyncStorage.updateItemPayload(item.id, payload);
       }
-      await _dispatchRequest(item.copyWith(payload: payload));
+      final response = await _dispatchRequest(item.copyWith(payload: payload));
+      if (item.type == 'payment_create' && response is Map) {
+        final box = Hive.isBoxOpen('payments_local')
+            ? Hive.box('payments_local')
+            : await Hive.openBox('payments_local');
+        final current = box.get(item.uuid);
+        final server = Map<String, dynamic>.from(response);
+        if (current is Map) {
+          server
+            ..['id'] = item.uuid
+            ..['status'] = server['status']?.toString() ?? 'SUBMITTED'
+            ..['createdAt'] = current['createdAt'];
+        }
+        await box.put(item.uuid, server);
+      }
 
       await SyncStorage.updateItemStatus(item.id, 'success');
       await SyncStorage.addAudit(item: item, event: 'sync_succeeded');
@@ -165,28 +180,28 @@ class SyncManager extends GetxController {
     await SyncStorage.addAudit(item: item, event: 'sync_retry_scheduled', message: error, details: {'attempts': attempts, 'nextAttemptAt': nextAttempt.toUtc().toIso8601String()});
   }
 
-  Future<void> _dispatchRequest(SyncItem item) async {
+  Future<dynamic> _dispatchRequest(SyncItem item) async {
     switch (item.method.toUpperCase()) {
       case 'POST':
-        await _apiClient.post(
+        return _apiClient.post<dynamic>(
           item.endpoint,
           data: item.payload,
           idempotencyKey: item.idempotencyKey,
         );
       case 'PUT':
-        await _apiClient.put(
+        return _apiClient.put<dynamic>(
           item.endpoint,
           data: item.payload,
           idempotencyKey: item.idempotencyKey,
         );
       case 'PATCH':
-        await _apiClient.patch(
+        return _apiClient.patch<dynamic>(
           item.endpoint,
           data: item.payload,
           idempotencyKey: item.idempotencyKey,
         );
       case 'DELETE':
-        await _apiClient.delete(item.endpoint);
+        return _apiClient.delete<dynamic>(item.endpoint);
       default:
         throw ApiException(
           message: 'Unknown HTTP method: ${item.method}',

@@ -17,6 +17,7 @@ import '../../data/datasources/local/visit_local_data_source.dart';
 import '../../data/repositories/visit_timeline_repository.dart';
 import '../../core/auth/session_service.dart';
 import '../sales/sales_order_page.dart';
+import '../payment/payment_page.dart';
 import '../visit/check_in_page.dart';
 import '../visit/check_out_page.dart';
 import '../visit/visit_action_page.dart';
@@ -292,12 +293,7 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
         );
         break;
       case _DetailMenuAction.receivable:
-        Get.to(
-          () => OutletTransactionPage(
-            outlet: outlet,
-            type: OutletTransactionType.receivablePayment,
-          ),
-        );
+        Get.to(() => PaymentPage(outlet: outlet));
         break;
       case _DetailMenuAction.defer:
         _openVisitAction(VisitActionType.defer);

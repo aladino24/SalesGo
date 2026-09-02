@@ -27,6 +27,31 @@ class AttachmentUploadService {
         ..remove('photoPath')
         ..['photoId'] = attachmentId;
     }
+    // Pembayaran dapat memiliki bukti per komponen (misalnya transfer dalam
+    // pembayaran gabungan). Path lokal diubah menjadi attachment ID hanya
+    // tepat sebelum request disinkronkan.
+    final components = prepared['components'];
+    if (components is List) {
+      final resolved = <Map<String, dynamic>>[];
+      for (final raw in components) {
+        if (raw is! Map) continue;
+        final component = Map<String, dynamic>.from(raw);
+        final paths = component.remove('attachmentLocalPaths');
+        if (paths is List && paths.isNotEmpty) {
+          final ids = <String>[];
+          for (final path in paths) {
+            final file = File(path.toString());
+            if (!await file.exists()) throw StateError('Lampiran pembayaran lokal tidak ditemukan.');
+            final id = await _upload(file, null);
+            await _waitUntilFinalized(id);
+            ids.add(id);
+          }
+          component['attachmentIds'] = ids;
+        }
+        resolved.add(component);
+      }
+      prepared['components'] = resolved;
+    }
     return prepared;
   }
 
