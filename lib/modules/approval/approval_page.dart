@@ -183,6 +183,7 @@ class ApprovalPage extends GetView<ApprovalController> {
 
   String _approvalTitle(ApprovalModel item) => switch (item.type) {
         'new_outlet' => 'Approval Outlet Baru',
+        'new_ship_to_location' => 'Approval Lokasi Pengiriman',
         'visit_out_of_radius' => 'Override Check-in Luar Radius',
         'delivery_note' => 'Approval Surat Jalan',
         'journey_out_of_town' => 'Approval Perjalanan Luar Kota',
@@ -191,11 +192,50 @@ class ApprovalPage extends GetView<ApprovalController> {
 
   IconData _approvalIcon(ApprovalModel item) => switch (item.type) {
         'new_outlet' => Icons.storefront_outlined,
+        'new_ship_to_location' => Icons.add_location_alt_outlined,
         'visit_out_of_radius' => Icons.location_off_outlined,
         'delivery_note' => Icons.local_shipping_outlined,
         'journey_out_of_town' => Icons.route_outlined,
         _ => Icons.approval_outlined,
       };
+
+  void _openShipToLocationDetail(ApprovalModel item) {
+    final location = item.shipToLocation;
+    if (location == null) return;
+    final latitude = (location['latitude'] as num?)?.toDouble() ?? 0;
+    final longitude = (location['longitude'] as num?)?.toDouble() ?? 0;
+    Get.bottomSheet(
+      SafeArea(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Center(child: Container(width: 42, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(4)))),
+              const SizedBox(height: 18),
+              const Row(children: [CircleAvatar(backgroundColor: AppColors.primarySoft, child: Icon(Icons.local_shipping_outlined, color: AppColors.primary)), SizedBox(width: 12), Expanded(child: Text('Lokasi Pengiriman Baru', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)))]),
+              const SizedBox(height: 18),
+              _DetailRow('Outlet', '${location['outletName'] ?? '-'} (${location['outletCode'] ?? '-'})'),
+              _DetailRow('Lokasi', location['name']?.toString() ?? '-'),
+              _DetailRow('Kode', location['code']?.toString() ?? '-'),
+              _DetailRow('Alamat', location['address']?.toString() ?? '-'),
+              _DetailRow('Kontak', location['contactName']?.toString() ?? '-'),
+              _DetailRow('Telepon', location['phone']?.toString() ?? '-'),
+              _DetailRow('Diajukan oleh', '${item.requestedBy}${item.requestedByRole == null ? '' : ' • ${item.requestedByRole}'}'),
+              const SizedBox(height: 14),
+              const Text('Titik lokasi pengiriman', style: TextStyle(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              SizedBox(height: 185, child: SfaOpenStreetMap(center: LatLng(latitude, longitude), zoom: 16, markers: [SfaMapMarker(point: LatLng(latitude, longitude), label: 'Kirim', color: AppColors.primary)])),
+              const SizedBox(height: 7),
+              Text('${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            ],
+          ),
+        ),
+      ),
+      isScrollControlled: true,
+    );
+  }
 
   void _openVisitOverrideDetail(ApprovalModel item) {
     final visit = item.visit;
@@ -374,6 +414,9 @@ class ApprovalPage extends GetView<ApprovalController> {
                       if (item.outlet != null) ...[
                         const SizedBox(height: 8),
                         TextButton.icon(onPressed: () => _openDetail(item), icon: const Icon(Icons.visibility_outlined), label: const Text('Lihat ringkasan & lokasi')),
+                      ] else if (item.shipToLocation != null) ...[
+                        const SizedBox(height: 8),
+                        TextButton.icon(onPressed: () => _openShipToLocationDetail(item), icon: const Icon(Icons.map_outlined), label: const Text('Lihat alamat & titik lokasi')),
                       ] else if (item.type == 'visit_out_of_radius') ...[
                         const SizedBox(height: 8),
                         Text('Alasan: ${item.reason.isEmpty ? '-' : item.reason}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),

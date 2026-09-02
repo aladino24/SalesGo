@@ -25,6 +25,7 @@ import '../visit/visit_controller.dart';
 import '../home/home_controller.dart';
 import 'outlet_transaction_page.dart';
 import 'outlet_sales_schedule_card.dart';
+import 'new_ship_to_location_page.dart';
 
 enum _DetailMenuAction {
   purchase,
@@ -55,6 +56,14 @@ class OutletDetailPage extends StatefulWidget {
 class _OutletDetailPageState extends State<OutletDetailPage> {
   String? _activeVisitId;
   late OutletModel outlet;
+
+  bool get _canRequestShipTo {
+    final role = Get.find<SessionService>().currentRole.value;
+    return role?.name == 'sales' ||
+        role?.name == 'supervisor' ||
+        role?.name == 'branchManager' ||
+        role?.name == 'it';
+  }
 
   @override
   void initState() {
@@ -102,6 +111,17 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
       return Scaffold(
         appBar: AppBar(
           title: Text(outlet.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+          actions: _canRequestShipTo
+              ? [
+                  IconButton(
+                    tooltip: 'Tambah lokasi pengiriman',
+                    icon: const Icon(Icons.add_location_alt_outlined),
+                    onPressed: () => Get.to<void>(
+                      () => NewShipToLocationPage(outlet: outlet),
+                    ),
+                  ),
+                ]
+              : null,
         ),
         body: SafeArea(
           // Detail dari Data Master bersifat read-only. Telepon tetap tersedia
@@ -120,9 +140,16 @@ class _OutletDetailPageState extends State<OutletDetailPage> {
             outlet.name,
             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
           ),
-          actions: _activeVisitId == null
-              ? const []
-              : [
+          actions: [
+            if (_canRequestShipTo)
+              IconButton(
+                tooltip: 'Tambah lokasi pengiriman',
+                icon: const Icon(Icons.add_location_alt_outlined),
+                onPressed: () => Get.to<void>(
+                  () => NewShipToLocationPage(outlet: outlet),
+                ),
+              ),
+            if (_activeVisitId != null)
             PopupMenuButton<_DetailMenuAction>(
               onSelected: (action) => _openMenuAction(action),
               itemBuilder: (_) => const [

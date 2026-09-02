@@ -5,6 +5,8 @@ abstract final class ApiEndpoints {
 
   static const products = '/master/products';
   static const outlets = '/master/outlets';
+  static const shipToLocations = '/master/ship-to-locations';
+  static String outletShipToLocations(String outletId) => '/outlets/$outletId/ship-to-locations';
   static const routeAssignments = '/master/route-assignments';
   static const routeAssignmentsBulk = '/master/route-assignments/bulk';
   static const routeSales = '/master/route-sales';

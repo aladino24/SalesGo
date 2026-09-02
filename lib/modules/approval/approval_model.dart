@@ -10,6 +10,7 @@ class ApprovalModel {
     this.requestedByRole,
     this.outlet,
     this.visit,
+    this.shipToLocation,
   });
 
   final String id;
@@ -22,6 +23,7 @@ class ApprovalModel {
   final String? requestedByRole;
   final Map<String, dynamic>? outlet;
   final Map<String, dynamic>? visit;
+  final Map<String, dynamic>? shipToLocation;
 
   factory ApprovalModel.fromJson(Map<String, dynamic> json) {
     final requester = json['requestedBy'];
@@ -33,6 +35,7 @@ class ApprovalModel {
       status: json['status']?.toString() ?? 'Pending', createdAt: DateTime.parse(json['createdAt'].toString()),
       outlet: json['outlet'] is Map ? Map<String, dynamic>.from(json['outlet'] as Map) : null,
       visit: json['visit'] is Map ? Map<String, dynamic>.from(json['visit'] as Map) : null,
+      shipToLocation: json['shipToLocation'] is Map ? Map<String, dynamic>.from(json['shipToLocation'] as Map) : null,
     );
   }
 
@@ -46,5 +49,6 @@ class ApprovalModel {
         'createdAt': createdAt.toIso8601String(),
         if (outlet != null) 'outlet': outlet,
         if (visit != null) 'visit': visit,
+        if (shipToLocation != null) 'shipToLocation': shipToLocation,
       };
 }

@@ -58,6 +58,7 @@ class MasterDataDownloadService {
   Future<_AdditionalMasterData> _downloadAdditionalMasterData() async {
     var routes = 0;
     await _downloadReceivableCache();
+    await _downloadShipToLocations();
     try {
       final assignments = await _api.get<List<dynamic>>(ApiEndpoints.routeAssignments);
       final records = assignments
@@ -104,6 +105,35 @@ class MasterDataDownloadService {
       promotions: promotions,
       files: files,
     );
+  }
+
+  Future<void> _downloadShipToLocations() async {
+    try {
+      final response = await _api.get<List<dynamic>>(
+        ApiEndpoints.shipToLocations,
+      );
+      final replacement = <String, Map<String, dynamic>>{};
+      for (final raw in response) {
+        if (raw is! Map) continue;
+        final item = Map<String, dynamic>.from(raw);
+        final id = item['id']?.toString();
+        if (id != null && id.isNotEmpty) replacement[id] = item;
+      }
+      final box = Hive.isBoxOpen('ship_to_locations_cache')
+          ? Hive.box('ship_to_locations_cache')
+          : await Hive.openBox('ship_to_locations_cache');
+      final previous = Map<dynamic, dynamic>.from(box.toMap());
+      try {
+        await box.clear();
+        await box.putAll(replacement);
+      } catch (_) {
+        await box.clear();
+        await box.putAll(previous);
+        rethrow;
+      }
+    } catch (_) {
+      // Master lokasi pengiriman terakhir tetap dapat dipakai offline.
+    }
   }
 
   /// Piutang yang pernah diunduh tetap dapat dibuka saat perangkat offline.

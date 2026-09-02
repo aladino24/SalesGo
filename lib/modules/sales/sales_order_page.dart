@@ -12,6 +12,7 @@ import '../../data/models/product_model.dart';
 import '../../data/models/sales_order_model.dart';
 import '../../data/repositories/master_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
+import '../../data/repositories/ship_to_location_repository.dart';
 
 class SalesOrderPage extends StatefulWidget {
   const SalesOrderPage({super.key, required this.outlet});
@@ -24,11 +25,14 @@ class SalesOrderPage extends StatefulWidget {
 class _SalesOrderPageState extends State<SalesOrderPage> {
   final _repository = SalesOrderRepository();
   final _master = MasterRepository();
+  final _shipToRepository = ShipToLocationRepository();
   final _search = TextEditingController();
   final _cart = <String, _CartLine>{};
   final _selectedVariantByFamily = <String, String>{};
   final _selectedUomByProduct = <String, String>{};
   List<ProductModel> _products = const [];
+  List<ShipToLocation> _shipToLocations = const [];
+  ShipToLocation? _shipTo;
   bool _loading = true;
   bool _saving = false;
   String _division = '';
@@ -42,6 +46,7 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
     super.initState();
     _loadOrderPolicy();
     _loadProducts();
+    _loadShipToLocations();
   }
 
   @override
@@ -62,6 +67,46 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _loadShipToLocations() async {
+    final locations = await _shipToRepository.forOutlet(widget.outlet);
+    if (!mounted) return;
+    setState(() {
+      _shipToLocations = locations;
+      _shipTo = locations.firstWhereOrNull((item) => item.isDefault) ??
+          locations.firstOrNull;
+    });
+  }
+
+  Future<void> _selectShipTo() async {
+    if (_shipToLocations.isEmpty) return;
+    final selected = await showModalBottomSheet<ShipToLocation>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const ListTile(
+              title: Text('Pilih tujuan pengiriman', style: TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: Text('Barang dikirim ke alamat milik outlet yang dipilih.'),
+            ),
+            ..._shipToLocations.map(
+              (location) => RadioListTile<ShipToLocation>(
+                value: location,
+                groupValue: _shipTo,
+                onChanged: (value) => Navigator.pop(sheetContext, value),
+                title: Text(location.name),
+                subtitle: Text('${location.code.isEmpty ? 'Alamat utama' : location.code}\n${location.address}'),
+                isThreeLine: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selected != null && mounted) setState(() => _shipTo = selected);
   }
 
   void _loadOrderPolicy() {
@@ -167,6 +212,7 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
         total: _total,
         status: 'Pending Sync',
         createdAt: DateTime.now(),
+        shipTo: _shipTo,
       );
       await _repository.create(order);
       if (!mounted) return;
@@ -211,6 +257,30 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Order untuk ${widget.outlet.name}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)), const SizedBox(height: 3), Text(widget.outlet.address, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 11))])),
                 const Icon(Icons.shopping_bag_outlined, color: Colors.white70),
               ]),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: OutlinedButton.icon(
+              onPressed: _selectShipTo,
+              icon: const Icon(Icons.local_shipping_outlined),
+              label: Align(
+                alignment: Alignment.centerLeft,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Tujuan pengiriman'),
+                    Text(
+                      _shipTo == null
+                          ? 'Memuat alamat pengiriman...'
+                          : '${_shipTo!.name} — ${_shipTo!.address}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           Padding(

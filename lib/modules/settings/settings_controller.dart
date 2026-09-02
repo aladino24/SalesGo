@@ -293,7 +293,7 @@ class SettingsController extends GetxController {
         'outlet_transactions', 'visit_actions', 'visit_timeline', 'journeys', 'journey_activities',
         'journey_download_state', 'delivery_notes', 'meetings', 'approvals_cache',
         'promotions', 'files', 'notifications_cache', 'monitoring_cache',
-        'route_master_cache', 'outlet_performance', 'dashboard_cache', 'payment_receivables_cache', 'payments_local', 'sync_queue_box', 'sync_audit_log',
+        'route_master_cache', 'outlet_performance', 'dashboard_cache', 'payment_receivables_cache', 'ship_to_locations_cache', 'payments_local', 'sync_queue_box', 'sync_audit_log',
       ];
       var deletedRecords = 0;
       for (final name in boxes) {
