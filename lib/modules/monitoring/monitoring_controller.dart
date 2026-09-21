@@ -33,8 +33,9 @@ class MonitoringController extends GetxController {
 
   Map<String, dynamic>? get selectedTrackingMember {
     for (final member in members) {
-      if (member['id']?.toString() == selectedTrackingMemberId.value)
+      if (member['id']?.toString() == selectedTrackingMemberId.value) {
         return member;
+      }
     }
     return null;
   }
@@ -70,13 +71,15 @@ class MonitoringController extends GetxController {
             .toList(),
       );
       performance.clear();
-      if (selectedTrackingMemberId.value.isEmpty && members.isNotEmpty)
+      if (selectedTrackingMemberId.value.isEmpty && members.isNotEmpty) {
         selectedTrackingMemberId.value = members.first['id'].toString();
+      }
       if (selectedActivityMemberId.value.isNotEmpty &&
           !members.any(
             (item) => item['id']?.toString() == selectedActivityMemberId.value,
-          ))
+          )) {
         selectedActivityMemberId.value = '';
+      }
       await Future.wait([loadActivities(), loadLocationHistory()]);
     } finally {
       isLoading.value = false;

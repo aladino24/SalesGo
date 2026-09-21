@@ -705,6 +705,13 @@ class _MenuTab extends StatelessWidget {
             null,
             onTap: () => Get.toNamed(AppRoutes.approval),
           ),
+          _GridItem(
+            Icons.local_offer_outlined,
+            'Kontrol Promosi',
+            AppColors.warning,
+            null,
+            onTap: () => Get.toNamed(AppRoutes.promotionControl),
+          ),
         ]),
         if (canMonitor)
           _GridSection('Monitoring', [

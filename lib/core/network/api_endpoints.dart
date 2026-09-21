@@ -37,6 +37,9 @@ abstract final class ApiEndpoints {
   static const approvals = '/approvals';
   static const serverState = '/sync/state';
   static const promotions = '/promotions';
+  static const promotionDashboard = '/promotions/dashboard';
+  static const promotionSpecialRequests = '/promotions/special-requests';
+  static String promotionProofs(String promotionId) => '/promotions/$promotionId/merchandising-proofs';
   static const files = '/files';
   static const monitoringTeam = '/monitoring/team';
   static const monitoringLocations = '/monitoring/locations';

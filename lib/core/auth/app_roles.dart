@@ -1,6 +1,7 @@
 enum AppRole {
   sales,
   marketing,
+  operational,
   supervisor,
   branchManager,
   keyAccountManager,
@@ -14,6 +15,8 @@ extension AppRoleExtension on AppRole {
         return 'Sales';
       case AppRole.marketing:
         return 'Marketing';
+      case AppRole.operational:
+        return 'Operasional';
       case AppRole.supervisor:
         return 'Supervisor';
       case AppRole.branchManager:

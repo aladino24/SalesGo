@@ -27,6 +27,7 @@ import '../../modules/meeting/meeting_page.dart';
 import '../../modules/sync_activity/sync_activity_page.dart';
 import '../../modules/route_master/route_master_page.dart';
 import '../../modules/activity/activity_page.dart';
+import '../../modules/promotion/promotion_control_page.dart';
 import 'app_routes.dart';
 
 class AppPages {
@@ -75,5 +76,6 @@ class AppPages {
     GetPage(name: AppRoutes.syncActivity, page: () => const SyncActivityPage()),
     GetPage(name: AppRoutes.routeMaster, page: () => const RouteMasterPage()),
     GetPage(name: AppRoutes.activities, page: () => const ActivityPage()),
+    GetPage(name: AppRoutes.promotionControl, page: () => const PromotionControlPage()),
   ];
 }

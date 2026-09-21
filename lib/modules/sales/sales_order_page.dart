@@ -9,8 +9,10 @@ import '../../core/network/api_config.dart';
 import '../../core/storage/local_storage.dart';
 import '../../data/models/outlet_model.dart';
 import '../../data/models/product_model.dart';
+import '../../data/models/promotion_model.dart';
 import '../../data/models/sales_order_model.dart';
 import '../../data/repositories/master_repository.dart';
+import '../../data/repositories/information_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
 import '../../data/repositories/ship_to_location_repository.dart';
 
@@ -26,6 +28,7 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
   final _repository = SalesOrderRepository();
   final _master = MasterRepository();
   final _shipToRepository = ShipToLocationRepository();
+  final _information = InformationRepository();
   final _search = TextEditingController();
   final _cart = <String, _CartLine>{};
   final _selectedVariantByFamily = <String, String>{};
@@ -33,6 +36,8 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
   List<ProductModel> _products = const [];
   List<ShipToLocation> _shipToLocations = const [];
   ShipToLocation? _shipTo;
+  List<PromotionModel> _promotions = const [];
+  String? _promotionCode;
   bool _loading = true;
   bool _saving = false;
   String _division = '';
@@ -47,6 +52,7 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
     _loadOrderPolicy();
     _loadProducts();
     _loadShipToLocations();
+    _loadPromotions();
   }
 
   @override
@@ -77,6 +83,13 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
       _shipTo = locations.firstWhereOrNull((item) => item.isDefault) ??
           locations.firstOrNull;
     });
+  }
+
+  Future<void> _loadPromotions() async {
+    final cached = await _information.getPromotions(online: false);
+    if (mounted) setState(() => _promotions = cached);
+    final fresh = await _information.getPromotions(online: true);
+    if (mounted) setState(() => _promotions = fresh);
   }
 
   Future<void> _selectShipTo() async {
@@ -213,6 +226,7 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
         status: 'Pending Sync',
         createdAt: DateTime.now(),
         shipTo: _shipTo,
+        promotionCode: _promotionCode,
       );
       await _repository.create(order);
       if (!mounted) return;
@@ -257,6 +271,26 @@ class _SalesOrderPageState extends State<SalesOrderPage> {
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Order untuk ${widget.outlet.name}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)), const SizedBox(height: 3), Text(widget.outlet.address, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 11))])),
                 const Icon(Icons.shopping_bag_outlined, color: Colors.white70),
               ]),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: DropdownButtonFormField<String?>(
+              value: _promotionCode,
+              decoration: const InputDecoration(
+                labelText: 'Promosi pesanan',
+                prefixIcon: Icon(Icons.local_offer_outlined),
+              ),
+              items: [
+                const DropdownMenuItem<String?>(value: null, child: Text('Tanpa promosi')),
+                ..._promotions.where((item) => item.status == 'Aktif').map(
+                  (item) => DropdownMenuItem<String?>(
+                    value: item.code,
+                    child: Text('${item.title} — min. Rp ${item.minimumOrderAmount.toStringAsFixed(0)}'),
+                  ),
+                ),
+              ],
+              onChanged: (value) => setState(() => _promotionCode = value),
             ),
           ),
           Padding(

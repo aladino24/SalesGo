@@ -41,8 +41,9 @@ class MasterDataDownloadService {
       ApiEndpoints.masterSnapshot,
     );
     final datasets = response['datasets'];
-    if (datasets is! Map)
+    if (datasets is! Map) {
       throw const FormatException('Snapshot master tidak memiliki datasets.');
+    }
 
     onProgress?.call(
       const MasterDownloadProgress(value: .35, label: 'Memvalidasi produk...'),
@@ -232,11 +233,13 @@ class MasterDataDownloadService {
   }
 
   List<OutletModel> _outlets(dynamic raw) {
-    if (raw is! List)
+    if (raw is! List) {
       throw const FormatException('Dataset outlets tidak valid.');
+    }
     return raw.map((item) {
-      if (item is! Map)
+      if (item is! Map) {
         throw const FormatException('Satu atau lebih data outlet tidak valid.');
+      }
       return OutletModel.fromJson(Map<String, dynamic>.from(item));
     }).toList();
   }

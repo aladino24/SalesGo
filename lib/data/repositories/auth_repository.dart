@@ -24,6 +24,8 @@ class AuthRepository {
         ? AppRole.it
         : normalized.contains('marketing')
         ? AppRole.marketing
+        : normalized.contains('operational') || normalized.contains('operasional')
+        ? AppRole.operational
         : normalized.contains('supervisor')
         ? AppRole.supervisor
         : normalized.contains('manager')

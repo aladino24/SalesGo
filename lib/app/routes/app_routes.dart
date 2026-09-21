@@ -6,6 +6,7 @@ class AppRoutes {
   static const product = '/product';
   static const settings = '/settings';
   static const promotion = '/promotion';
+  static const promotionControl = '/promotion-control';
   static const approval = '/approval';
   static const journey = '/journey';
   static const notifications = '/notifications';
